@@ -2,8 +2,13 @@ name: Build and publish Docker image
 
 # Builds the Dockerfile at repo root and pushes it to Docker Hub
 # (quffy4/cloud-plus) on every push to main, plus on-demand via the
-# Actions tab ("Run workflow"). Requires two repo secrets set up
-# under Settings -> Secrets and variables -> Actions:
+# Actions tab ("Run workflow"). Every run publishes :latest and a
+# short-SHA tag; the Actions tab's "Run workflow" form also has an
+# optional "tag" field for publishing an extra custom tag (e.g.
+# v1.0.0) alongside those two.
+#
+# Requires two repo secrets set up under
+# Settings -> Secrets and variables -> Actions:
 #   DOCKERHUB_USERNAME = quffy4
 #   DOCKERHUB_TOKEN    = a Docker Hub access token (not your password)
 # No local Docker or manual `docker push` needed on anyone's machine
@@ -13,7 +18,12 @@ name: Build and publish Docker image
 on:
   push:
     branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Extra tag to publish alongside latest/sha (optional)"
+        required: false
+        type: string
 
 env:
   IMAGE_NAME: quffy4/cloud-plus
@@ -42,6 +52,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,format=short
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
