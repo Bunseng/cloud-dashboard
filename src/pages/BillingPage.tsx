@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { Coins, Download, Gem, ListFilter, Receipt } from "lucide-react";
 
+import { Coins } from "@/components/animate-ui/icons/coins";
+import { Download } from "@/components/animate-ui/icons/download";
+import { Gem } from "@/components/animate-ui/icons/gem";
+import { ListFilter } from "@/components/animate-ui/icons/list-filter";
+import { Receipt } from "@/components/animate-ui/icons/receipt";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import {
@@ -125,7 +129,7 @@ function PaginationFooter({ total }: { total: number }) {
               aria-label={label}
               className="h-7 w-7 border-zinc-200 dark:border-zinc-800"
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-3.5 w-3.5" animateOnHover animateOnTap />
             </Button>
           ))}
         </div>
@@ -196,7 +200,7 @@ function SubscriptionTab() {
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-          <ListFilter className="h-4 w-4" />
+          <ListFilter className="h-4 w-4" animateOnView />
           Filter
         </span>
         <ServiceFilterSelect value={category} onChange={setCategory} />
@@ -215,14 +219,14 @@ function SubscriptionTab() {
         </p>
         <div className="mt-4 flex flex-wrap gap-6">
           <div className="flex items-center gap-2">
-            <Coins className="h-5 w-5 text-amber-500" />
+            <Coins className="h-5 w-5 text-amber-500" animateOnView />
             <p className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
               {totalKHR.toLocaleString()}{" "}
               <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">KHR</span>
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Gem className="h-5 w-5 text-[#1C75BC] dark:text-[#6FA8D8]" />
+            <Gem className="h-5 w-5 text-[#1C75BC] dark:text-[#6FA8D8]" animateOnView />
             <p className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
               {totalBG.toLocaleString()}{" "}
               <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">BG</span>
@@ -254,7 +258,7 @@ function SubscriptionTab() {
                     <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">
                       <div className="flex items-center gap-2">
                         {cat?.icon && (
-                          <cat.icon className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-500" />
+                          <cat.icon className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-500" animateOnView />
                         )}
                         {r.name}
                       </div>
@@ -291,6 +295,7 @@ function SubscriptionTab() {
                     <Receipt
                       className="mb-3 h-10 w-10 text-zinc-300 dark:text-zinc-700"
                       strokeWidth={1.5}
+                      animateOnView
                     />
                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                       No matching subscriptions
@@ -323,7 +328,7 @@ function InvoiceTab() {
     <div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-          <ListFilter className="h-4 w-4" />
+          <ListFilter className="h-4 w-4" animateOnView />
           Filter
         </span>
         <ServiceFilterSelect value={category} onChange={setCategory} />
@@ -357,7 +362,7 @@ function InvoiceTab() {
                     <TableCell className="text-zinc-600 dark:text-zinc-400">
                       <div className="flex items-center gap-2">
                         {cat?.icon && (
-                          <cat.icon className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-500" />
+                          <cat.icon className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-500" animateOnView />
                         )}
                         {r.name}
                       </div>
@@ -371,7 +376,7 @@ function InvoiceTab() {
                         aria-label={`Download invoice ${r.id}`}
                         className="ml-auto flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium text-[#1C75BC] hover:bg-zinc-100 dark:text-[#6FA8D8] dark:hover:bg-zinc-900"
                       >
-                        <Download className="h-3.5 w-3.5" />
+                        <Download className="h-3.5 w-3.5" animateOnHover animateOnTap />
                         Download
                       </button>
                     </TableCell>
@@ -385,6 +390,7 @@ function InvoiceTab() {
                     <Receipt
                       className="mb-3 h-10 w-10 text-zinc-300 dark:text-zinc-700"
                       strokeWidth={1.5}
+                      animateOnView
                     />
                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                       No invoices in this category

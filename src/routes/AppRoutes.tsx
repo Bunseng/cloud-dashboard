@@ -7,8 +7,7 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
-import { Plus } from "lucide-react";
-
+import { Plus } from "@/components/animate-ui/icons/plus";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -154,10 +153,7 @@ function BillingRoute() {
 function PaymentRoute() {
   const navigate = useNavigate();
   return (
-    <PaymentPage
-      onTopUp={() => navigate("/topup")}
-      onViewBilling={() => navigate("/billing")}
-    />
+    <PaymentPage onViewBilling={() => navigate("/billing")} />
   );
 }
 
@@ -204,7 +200,7 @@ function StorageRoute() {
           onClick={() => setCreateBucketOpen(true)}
           className="h-9 shrink-0 px-4 text-sm"
         >
-          <Plus className="mr-1.5 h-4 w-4" strokeWidth={2.5} />
+          <Plus className="mr-1.5 h-4 w-4" strokeWidth={2.5} animateOnHover animateOnTap />
           Create Bucket
         </Button>
       </div>

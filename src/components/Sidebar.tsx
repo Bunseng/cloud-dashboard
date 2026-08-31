@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { RiArrowRightSLine, RiLogoutBoxRLine } from "@remixicon/react";
+
+import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
+import { Power } from "@/components/animate-ui/icons/power";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -115,7 +117,7 @@ export function Sidebar({
                     (isActive ? menuButtonActive : menuButtonInactive)
                   }
                 >
-                  <item.icon className="h-4 w-4 shrink-0" />
+                  <item.icon className="h-4 w-4 shrink-0" animateOnHover animateOnTap />
                   {!collapsed && <span>{item.label}</span>}
                 </button>
               </li>
@@ -156,15 +158,17 @@ export function Sidebar({
                       (isFeatureActive ? menuButtonActive : menuButtonInactive)
                     }
                   >
-                    <item.icon className="h-4 w-4 shrink-0" />
+                    <item.icon className="h-4 w-4 shrink-0" animateOnHover animateOnTap />
                     {!collapsed && (
                       <>
                         <span className="flex-1 text-left">{item.navLabel}</span>
-                        <RiArrowRightSLine
+                        <ChevronRight
                           className={
                             "h-4 w-4 shrink-0 text-zinc-400 motion-safe:transition-transform " +
                             (isOpen ? "rotate-90" : "")
                           }
+                          animateOnHover
+                          animateOnTap
                         />
                       </>
                     )}
@@ -235,7 +239,7 @@ export function Sidebar({
                     (isActive ? menuButtonActive : menuButtonInactive)
                   }
                 >
-                  <item.icon className="h-4 w-4 shrink-0" />
+                  <item.icon className="h-4 w-4 shrink-0" animateOnHover animateOnTap />
                   {!collapsed && <span>{item.label}</span>}
                 </button>
               </li>
@@ -249,7 +253,7 @@ export function Sidebar({
               title={collapsed ? "Log out" : undefined}
               className={menuButtonBase + " " + (collapsed ? "justify-center p-0 " : "") + menuButtonInactive}
             >
-              <RiLogoutBoxRLine className="h-4 w-4 shrink-0" />
+              <Power className="h-4 w-4 shrink-0" animateOnHover animateOnTap />
               {!collapsed && <span>Log out</span>}
             </button>
           </li>

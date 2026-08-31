@@ -1,6 +1,11 @@
 import { useState } from "react";
-import { ChevronLeft, Download, History, Pencil, Play, RotateCw, Square } from "lucide-react";
-
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { Download } from "@/components/animate-ui/icons/download";
+import { History } from "@/components/animate-ui/icons/history";
+import { Pencil } from "@/components/animate-ui/icons/pencil";
+import { Play } from "@/components/animate-ui/icons/play";
+import { RotateCw } from "@/components/animate-ui/icons/rotate-cw";
+import { Square } from "@/components/animate-ui/icons/square";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import {
@@ -21,6 +26,7 @@ import {
   StatTile,
   StatusBadge,
 } from "../../components/atoms";
+import { SAVED_REGISTRIES } from "../../data/registries";
 import { SERVICE_ROWS } from "./RunAppComponents";
 import { EditServiceInfoDrawer } from "./RunAppDialogs";
 
@@ -67,7 +73,7 @@ export function ServiceDetailPage({
         onClick={onBack}
         className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
         Back to {stackName}
       </button>
 
@@ -83,7 +89,7 @@ export function ServiceDetailPage({
             Update Service
           </Button>
           <Button variant="brand" onClick={() => setEditOpen(true)} className="h-9 gap-1.5 text-sm">
-            <Pencil className="h-3.5 w-3.5" />
+            <Pencil className="h-3.5 w-3.5" animateOnHover animateOnTap />
             Edit
           </Button>
         </div>
@@ -110,6 +116,11 @@ export function ServiceDetailPage({
             <CardTitle>Overview</CardTitle>
             <div className="mt-4 grid grid-cols-4 gap-x-6 gap-y-5">
               <StatTile label="Container Image">{d.containerImage}</StatTile>
+              <StatTile label="Registry Authentication">
+                {d.registryAuth === "private"
+                  ? SAVED_REGISTRIES.find((r) => r.id === d.registryId)?.name ?? "Private"
+                  : "Public"}
+              </StatTile>
             </div>
           </Card>
 
@@ -171,7 +182,7 @@ export function ServiceDetailPage({
                 onClick={() => setRunning(true)}
                 className="h-9 gap-1.5 text-sm"
               >
-                <Play className="h-3.5 w-3.5" />
+                <Play className="h-3.5 w-3.5" animateOnHover animateOnTap />
                 Start
               </Button>
               <Button
@@ -180,7 +191,7 @@ export function ServiceDetailPage({
                 onClick={() => setRunning(false)}
                 className="h-9 gap-1.5 text-sm"
               >
-                <Square className="h-3.5 w-3.5" />
+                <Square className="h-3.5 w-3.5" animateOnHover animateOnTap />
                 Stop
               </Button>
               <Button
@@ -189,7 +200,7 @@ export function ServiceDetailPage({
                 onClick={() => setRunning(true)}
                 className="h-9 gap-1.5 text-sm"
               >
-                <RotateCw className="h-3.5 w-3.5" />
+                <RotateCw className="h-3.5 w-3.5" animateOnHover animateOnTap />
                 Restart
               </Button>
             </div>
@@ -272,7 +283,7 @@ export function ServiceDetailPage({
               aria-label="View log history"
               className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-900 dark:hover:text-zinc-300"
             >
-              <History className="h-4 w-4" />
+              <History className="h-4 w-4" animateOnHover animateOnTap />
             </button>
             <CopyIconButton
               value={d[logTab].join("\n")}
@@ -284,7 +295,7 @@ export function ServiceDetailPage({
               aria-label="Download log"
               className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-900 dark:hover:text-zinc-300"
             >
-              <Download className="h-4 w-4" />
+              <Download className="h-4 w-4" animateOnHover animateOnTap />
             </button>
           </div>
         </div>

@@ -1,4 +1,8 @@
-import { Box, Database, Rocket, type LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
+
+import { Box } from "@/components/animate-ui/icons/box";
+import { Database } from "@/components/animate-ui/icons/database";
+import { Rocket } from "@/components/animate-ui/icons/rocket";
 
 /* ------------------------------------------------------------------ *
  * Wallet & Billing — account balance up top, then two tabs: Subscription
@@ -13,7 +17,14 @@ export type BillingCategoryKey = "all" | "storage" | "runapp" | "database";
 export interface BillingCategory {
   key: BillingCategoryKey;
   label: string;
-  icon?: LucideIcon;
+  icon?: ComponentType<{
+    className?: string;
+    animate?: boolean;
+    animateOnHover?: boolean;
+    animateOnTap?: boolean;
+    animateOnView?: boolean;
+    loop?: boolean;
+  }>;
 }
 
 export type BillingCurrency = "KHR" | "BG";

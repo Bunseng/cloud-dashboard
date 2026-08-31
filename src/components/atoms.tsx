@@ -1,18 +1,16 @@
 import { forwardRef } from "react";
 import type { ChangeEventHandler, CSSProperties, KeyboardEvent, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Copy,
-  Plus,
-  RefreshCw,
-  Search,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
 
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
+import { ChevronsLeft } from "@/components/animate-ui/icons/chevrons-left";
+import { ChevronsRight } from "@/components/animate-ui/icons/chevrons-right";
+import { Copy } from "@/components/animate-ui/icons/copy";
+import { Plus } from "@/components/animate-ui/icons/plus";
+import { RefreshCw } from "@/components/animate-ui/icons/refresh-cw";
+import { Search } from "@/components/animate-ui/icons/search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +29,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
       <Plus
         className="h-3 w-3 shrink-0 self-start text-[#35C3D9]"
         strokeWidth={3}
+        animateOnView
       />
     </span>
   );
@@ -61,7 +60,9 @@ export function SearchField({
 }) {
   return (
     <div className="relative flex-1">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+      <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+        <Search className="h-4 w-4 text-zinc-400" animateOnView />
+      </div>
       <Input
         placeholder={placeholder}
         value={value}
@@ -80,7 +81,7 @@ export function RefreshIconButton() {
       aria-label="Refresh"
       className="h-9 w-9 shrink-0 text-zinc-600 dark:text-zinc-300"
     >
-      <RefreshCw className="h-4 w-4" />
+      <RefreshCw className="h-4 w-4" animateOnHover animateOnTap />
     </Button>
   );
 }
@@ -97,7 +98,11 @@ export function BillingDashboardButton({ compact = false }: { compact?: boolean 
       }
     >
       Billing Dashboard
-      <ChevronRight className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
+      <ChevronRight
+        className={compact ? "h-3.5 w-3.5" : "h-4 w-4"}
+        animateOnHover
+        animateOnTap
+      />
     </Button>
   );
 }
@@ -123,7 +128,7 @@ export function CopyIconButton({
         className
       }
     >
-      <Copy className={iconClassName} />
+      <Copy className={iconClassName} animateOnHover animateOnTap />
     </button>
   );
 }
@@ -198,7 +203,14 @@ export function StatusBadge({
   );
 }
 
-export const PAGINATION_CONTROLS: { Icon: LucideIcon; label: string }[] = [
+export const PAGINATION_CONTROLS: {
+  Icon: ComponentType<{
+    className?: string;
+    animateOnHover?: boolean;
+    animateOnTap?: boolean;
+  }>;
+  label: string;
+}[] = [
   { Icon: ChevronsLeft, label: "First page" },
   { Icon: ChevronLeft, label: "Previous page" },
   { Icon: ChevronRight, label: "Next page" },

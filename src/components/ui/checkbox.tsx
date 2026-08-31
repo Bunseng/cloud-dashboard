@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
-import { Check } from "lucide-react";
+import { Check } from "@/components/animate-ui/icons/check";
 
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,7 @@ const Checkbox = React.forwardRef<
     {...props}
   >
     <CheckboxPrimitive.Indicator className={cn("flex items-center justify-center text-current")}>
-      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+      <Check className="h-3.5 w-3.5" strokeWidth={3} animateOnHover animateOnTap />
     </CheckboxPrimitive.Indicator>
   </CheckboxPrimitive.Root>
 ));

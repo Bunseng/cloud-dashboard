@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { ChevronLeft, Download, Pencil, Trash2 } from "lucide-react";
-
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { Download } from "@/components/animate-ui/icons/download";
+import { Pencil } from "@/components/animate-ui/icons/pencil";
+import { Trash2 } from "@/components/animate-ui/icons/trash-2";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -139,7 +141,7 @@ function BucketSettingTab() {
             onClick={() => setPolicyOpen(true)}
             className="h-9 shrink-0 gap-1.5 text-sm"
           >
-            <Pencil className="h-3.5 w-3.5" />
+            <Pencil className="h-3.5 w-3.5" animateOnHover animateOnTap />
             Edit
           </Button>
         </div>
@@ -320,14 +322,14 @@ function BucketFileTab() {
                       aria-label={`Download ${row.name}`}
                       className="text-[#1C75BC] hover:text-[#17629F] dark:text-[#6FA8D8]"
                     >
-                      <Download className="h-4 w-4" />
+                      <Download className="h-4 w-4" animateOnHover animateOnTap />
                     </button>
                     <button
                       type="button"
                       aria-label={`Delete ${row.name}`}
                       className="text-red-500 hover:text-red-600 dark:text-red-400"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" animateOnHover animateOnTap />
                     </button>
                   </div>
                 </TableCell>
@@ -369,7 +371,7 @@ function BucketFileTab() {
                 aria-label={label}
                 className="h-8 w-8 border-zinc-200 dark:border-zinc-800"
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" animateOnHover animateOnTap />
               </Button>
             ))}
           </div>
@@ -397,7 +399,7 @@ export function BucketDetailPage({
         onClick={onBack}
         className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
         Back to Storage List
       </button>
 

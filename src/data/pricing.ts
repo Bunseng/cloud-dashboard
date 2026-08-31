@@ -1,13 +1,12 @@
-import {
-  AppWindow,
-  Box,
-  Clapperboard,
-  Database,
-  ImagePlay,
-  Rocket,
-  Server,
-  type LucideIcon,
-} from "lucide-react";
+import type { ComponentType } from "react";
+
+import { AppWindow } from "@/components/animate-ui/icons/app-window";
+import { Box } from "@/components/animate-ui/icons/box";
+import { Clapperboard } from "@/components/animate-ui/icons/clapperboard";
+import { Database } from "@/components/animate-ui/icons/database";
+import { ImagePlay } from "@/components/animate-ui/icons/image-play";
+import { Rocket } from "@/components/animate-ui/icons/rocket";
+import { Server } from "@/components/animate-ui/icons/server";
 
 /* ------------------------------------------------------------------ *
  * Real pricing — sourced from Sabay TeKh Cloud's published rate card
@@ -524,7 +523,14 @@ export function getTierTheme(name: string): TierTheme {
 export interface PricingCategory {
   key: PricingServiceKey;
   label: string;
-  icon: LucideIcon;
+  icon: ComponentType<{
+    className?: string;
+    animate?: boolean;
+    animateOnHover?: boolean;
+    animateOnTap?: boolean;
+    animateOnView?: boolean;
+    loop?: boolean;
+  }>;
 }
 
 export const PRICING_CATEGORIES: PricingCategory[] = [

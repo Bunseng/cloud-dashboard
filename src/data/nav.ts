@@ -1,15 +1,23 @@
-import {
-  RiBankCardLine,
-  RiBillLine,
-  RiBox3Line,
-  RiDashboardHorizontalLine,
-  RiDatabase2Line,
-  RiHome9Line,
-  RiServerLine,
-  RiStackLine,
-  RiTeamLine,
-  type RemixiconComponentType,
-} from "@remixicon/react";
+import type { ComponentType } from "react";
+
+import { CreditCard } from "@/components/animate-ui/icons/credit-card";
+import { Receipt } from "@/components/animate-ui/icons/receipt";
+import { Box } from "@/components/animate-ui/icons/box";
+import { LayoutDashboard } from "@/components/animate-ui/icons/layout-dashboard";
+import { Database } from "@/components/animate-ui/icons/database";
+import { House } from "@/components/animate-ui/icons/house";
+import { Server } from "@/components/animate-ui/icons/server";
+import { Layers } from "@/components/animate-ui/icons/layers";
+import { Users } from "@/components/animate-ui/icons/users";
+
+type NavIconComponent = ComponentType<{
+  className?: string;
+  animate?: boolean;
+  animateOnHover?: boolean;
+  animateOnTap?: boolean;
+  animateOnView?: boolean;
+  loop?: boolean;
+}>;
 
 /* ------------------------------------------------------------------ *
  * Nav data
@@ -18,7 +26,7 @@ import {
 export interface NavItem {
   id: string;
   label: string;
-  icon: RemixiconComponentType;
+  icon: NavIconComponent;
 }
 
 export interface AccountBalance {
@@ -30,7 +38,7 @@ export type FeatureId = "storage" | "runapp" | "database" | "vps";
 
 export interface Feature {
   id: FeatureId;
-  icon: RemixiconComponentType;
+  icon: NavIconComponent;
   navLabel: string;
   tabLabel: string;
   pageTitle: string;
@@ -41,8 +49,8 @@ export interface Feature {
 }
 
 export const MAIN_NAV: NavItem[] = [
-  { id: "home", label: "Home", icon: RiHome9Line },
-  { id: "dashboard", label: "Dashboard", icon: RiDashboardHorizontalLine },
+  { id: "home", label: "Home", icon: House },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
 ];
 
 /* Sidebar's "Manage" items — account-level pages that aren't tied to one
@@ -52,9 +60,9 @@ export const MAIN_NAV: NavItem[] = [
    "Wallet") and Billing Subscription (subscription + invoice history)
    are separate pages/routes, not tabs of one screen. */
 export const MANAGE_NAV: NavItem[] = [
-  { id: "payment", label: "Payment", icon: RiBankCardLine },
-  { id: "billing", label: "Billing Subscription", icon: RiBillLine },
-  { id: "groups", label: "Group Members", icon: RiTeamLine },
+  { id: "payment", label: "Payment", icon: CreditCard },
+  { id: "billing", label: "Billing Subscription", icon: Receipt },
+  { id: "groups", label: "Group Members", icon: Users },
 ];
 
 /* One account balance, read by both the Topbar pills and the Billing
@@ -69,7 +77,7 @@ export const ACCOUNT_BALANCE: AccountBalance = { khr: 100000, bg: 100000 };
 export const FEATURES: Feature[] = [
   {
     id: "storage",
-    icon: RiBox3Line,
+    icon: Box,
     navLabel: "Storage",
     tabLabel: "Storage",
     pageTitle: "Storage",
@@ -79,7 +87,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "runapp",
-    icon: RiStackLine,
+    icon: Layers,
     navLabel: "Run App",
     tabLabel: "RunApp",
     pageTitle: "Run App",
@@ -93,7 +101,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "database",
-    icon: RiDatabase2Line,
+    icon: Database,
     navLabel: "Database",
     tabLabel: "Database",
     pageTitle: "Databases",
@@ -104,7 +112,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "vps",
-    icon: RiServerLine,
+    icon: Server,
     navLabel: "VPS",
     tabLabel: "VPS",
     pageTitle: "VPS",

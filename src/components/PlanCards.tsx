@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Sparkles } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 
+import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
+import { Sparkles } from "@/components/animate-ui/icons/sparkles";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -28,7 +28,7 @@ export function PlanTierCard({
 }: {
   tier: any;
   categoryKey: PricingServiceKey;
-  icon: LucideIcon;
+  icon: ComponentType<{ className?: string; animateOnView?: boolean }>;
   isCurrent?: boolean;
   index?: number;
   currency?: DisplayCurrency;
@@ -57,7 +57,7 @@ export function PlanTierCard({
               theme.chip
             }
           >
-            <Icon className={"h-[18px] w-[18px] " + theme.icon} />
+            <Icon className={"h-[18px] w-[18px] " + theme.icon} animateOnView />
           </div>
           {tier.popular && (
             <Badge className={"border-transparent font-bold text-white hover:opacity-100 " + theme.badge}>
@@ -67,11 +67,11 @@ export function PlanTierCard({
         </div>
 
         <p className="text-base font-bold text-zinc-900 dark:text-zinc-50">{tier.name}</p>
-        <p className="text-[13px] leading-[1.4] text-zinc-500 dark:text-zinc-400">
+        <p className="line-clamp-2 min-h-[2.8em] text-[13px] leading-[1.4] text-zinc-500 dark:text-zinc-400">
           {tier.description}
         </p>
 
-        <p>
+        <p className="flex items-baseline whitespace-nowrap">
           <span
             className={
               "text-[22px] font-bold " +
@@ -80,11 +80,9 @@ export function PlanTierCard({
           >
             {priceDisplay}
           </span>
-          {tier.priceKHR !== 0 && (
-            <span className="ml-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-              /{tier.period}
-            </span>
-          )}
+          <span className="ml-1 text-[13px] text-zinc-500 dark:text-zinc-400">
+            {tier.priceKHR !== 0 ? `/${tier.period}` : " "}
+          </span>
         </p>
 
         <Separator className="bg-zinc-200 dark:bg-zinc-800" />
@@ -257,7 +255,7 @@ export function CurrentPlanSummary({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FF] dark:bg-zinc-900">
-            <Sparkles className="h-5 w-5 text-[#1C75BC]" />
+            <Sparkles className="h-5 w-5 text-[#1C75BC]" animateOnView />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -283,7 +281,7 @@ export function CurrentPlanSummary({
               className="h-9 shrink-0 gap-1 text-sm font-medium text-zinc-700 dark:text-zinc-300"
             >
               View {resourceLabel} List
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4" animateOnHover animateOnTap />
             </Button>
           )}
         </div>

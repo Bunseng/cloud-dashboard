@@ -1,4 +1,4 @@
-import { Wifi } from "lucide-react";
+import { Wifi } from "@/components/animate-ui/icons/wifi";
 
 import type { SavedCard } from "../data/paymentMethods";
 
@@ -43,7 +43,10 @@ export function PaymentCardVisual({
         <span className={"font-bold tracking-wide " + (compact ? "text-[11px]" : "text-sm")}>
           {card.brand}
         </span>
-        <Wifi className={compact ? "h-3.5 w-3.5 text-white/70" : "h-4 w-4 text-white/70"} />
+        <Wifi
+          className={compact ? "h-3.5 w-3.5 text-white/70" : "h-4 w-4 text-white/70"}
+          animateOnView
+        />
       </div>
 
       <p

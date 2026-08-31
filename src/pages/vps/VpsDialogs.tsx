@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { Copy } from "@/components/animate-ui/icons/copy";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 /* ------------------------------------------------------------------ *
  * VPS instance dialogs — rename + reinstall OS. Resizing CPU/RAM/
@@ -123,6 +125,98 @@ export function EditVpsDialog({
             className="h-9 text-sm"
           >
             {reinstalling ? "Save & Reinstall" : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Run Command — quick-start terminal snippets. Sample text is picked
+ * by OS family (Debian/Ubuntu apt, RHEL-family dnf, Windows PowerShell)
+ * so switching OS in Edit VPS still gets you a command that actually
+ * matches what's installed.
+ * ------------------------------------------------------------------ */
+
+export function getSampleRunCommand(os: string): string {
+  if (os.startsWith("Windows")) {
+    return "Install-WindowsUpdate -AcceptAll -AutoReboot";
+  }
+  if (os.startsWith("AlmaLinux") || os.startsWith("CentOS") || os.startsWith("Rocky")) {
+    return "sudo dnf update -y && sudo dnf upgrade -y";
+  }
+  return "sudo apt update && sudo apt upgrade -y";
+}
+
+export function AddRunCommandDialog({
+  open,
+  onOpenChange,
+  os,
+  onAdd,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  os: string;
+  onAdd: (command: string) => void;
+}) {
+  const sample = getSampleRunCommand(os);
+  const [command, setCommand] = useState(sample);
+
+  useEffect(() => {
+    if (open) setCommand(getSampleRunCommand(os));
+  }, [open, os]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Add Run Command</DialogTitle>
+          <DialogDescription>
+            A sample command for {os}, ready to copy onto this server over SSH. Edit it before
+            adding if you need something different.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="run-command-input" className="text-zinc-900 dark:text-zinc-100">
+              Command
+            </Label>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(command)}
+              className="flex items-center gap-1 text-xs font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
+            >
+              <Copy className="h-3.5 w-3.5" animateOnHover animateOnTap />
+              Copy
+            </button>
+          </div>
+          <Textarea
+            id="run-command-input"
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            rows={3}
+            className="mt-2 font-mono text-[13px]"
+          />
+        </div>
+
+        <DialogFooter className="gap-2">
+          <DialogClose asChild>
+            <Button variant="outline" className="h-9 text-sm">
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button
+            variant="brand"
+            disabled={!command.trim()}
+            onClick={() => {
+              onAdd(command.trim());
+              onOpenChange(false);
+            }}
+            className="h-9 text-sm"
+          >
+            Add Command
           </Button>
         </DialogFooter>
       </DialogContent>

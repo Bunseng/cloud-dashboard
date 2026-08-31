@@ -1,6 +1,7 @@
 import { useEffect, useState, type DragEvent, type FormEvent } from "react";
-import { Plus, Upload, X } from "lucide-react";
-
+import { Plus } from "@/components/animate-ui/icons/plus";
+import { Upload } from "@/components/animate-ui/icons/upload";
+import { X } from "@/components/animate-ui/icons/x";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -150,7 +151,7 @@ export function UploadFileDialog({
               e.target.value = "";
             }}
           />
-          <Upload className="h-8 w-8 text-zinc-400" strokeWidth={1.5} />
+          <Upload className="h-8 w-8 text-zinc-400" strokeWidth={1.5} animateOnView />
           <p className="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
             Drag & drop files here
           </p>
@@ -178,7 +179,7 @@ export function UploadFileDialog({
                   onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
                   className="shrink-0 text-zinc-400 hover:text-red-500"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4" animateOnHover animateOnTap />
                 </button>
               </li>
             ))}
@@ -251,7 +252,7 @@ export function MultiValueField({
           disabled={!draft.trim()}
           className="h-9 shrink-0 gap-1 text-sm"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4" animateOnHover animateOnTap />
           Add
         </Button>
       </div>
@@ -270,7 +271,7 @@ export function MultiValueField({
                 onClick={() => onChange(values.filter((v) => v !== value))}
                 className="rounded-full p-0.5 text-zinc-400 hover:text-red-500"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3.5 w-3.5" animateOnHover animateOnTap />
               </button>
             </li>
           ))}

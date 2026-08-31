@@ -1,6 +1,11 @@
 import { useState } from "react";
-import { ChevronLeft, Pencil, Play, RotateCw, Square } from "lucide-react";
-
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { Pencil } from "@/components/animate-ui/icons/pencil";
+import { Play } from "@/components/animate-ui/icons/play";
+import { Plus } from "@/components/animate-ui/icons/plus";
+import { RotateCw } from "@/components/animate-ui/icons/rotate-cw";
+import { Square } from "@/components/animate-ui/icons/square";
+import { Terminal } from "@/components/animate-ui/icons/terminal";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -14,7 +19,7 @@ import {
   UsageBar,
 } from "../../components/atoms";
 import { PLACEHOLDER_SUBSCRIPTION_COUNT } from "../../data/billing";
-import { EditVpsDialog } from "./VpsDialogs";
+import { AddRunCommandDialog, EditVpsDialog } from "./VpsDialogs";
 
 /* ------------------------------------------------------------------ *
  * VPS instance detail — one full root-access server per subscription,
@@ -75,6 +80,8 @@ export function VpsInstanceDetailPage({
   const [running, setRunning] = useState(d.status.label === "Running");
   const [editOpen, setEditOpen] = useState(false);
   const [destroyOpen, setDestroyOpen] = useState(false);
+  const [addCommandOpen, setAddCommandOpen] = useState(false);
+  const [commands, setCommands] = useState<string[]>([]);
   const status = running ? { label: "Running", tone: "green" } : { label: "Stopped", tone: "red" };
 
   return (
@@ -84,7 +91,7 @@ export function VpsInstanceDetailPage({
         onClick={onBack}
         className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
         Back to Subscriptions
       </button>
 
@@ -100,7 +107,7 @@ export function VpsInstanceDetailPage({
           onClick={() => setEditOpen(true)}
           className="h-9 shrink-0 gap-1.5 px-8 text-sm"
         >
-          <Pencil className="h-3.5 w-3.5" />
+          <Pencil className="h-3.5 w-3.5" animateOnHover animateOnTap />
           Edit
         </Button>
       </div>
@@ -145,6 +152,41 @@ export function VpsInstanceDetailPage({
             </div>
           </Card>
 
+          {/* Run commands — quick-start snippets, sample OS-matched
+              command supplied by AddRunCommandDialog. */}
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle>Run Commands</CardTitle>
+                <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
+                  Sample terminal commands for {d.os}, ready to run over SSH.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setAddCommandOpen(true)}
+                className="h-9 shrink-0 gap-1.5 text-sm"
+              >
+                <Plus className="h-4 w-4" animateOnHover animateOnTap />
+                Add
+              </Button>
+            </div>
+            {commands.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                {commands.map((cmd, i) => (
+                  <ConnectionRow key={`${cmd}-${i}`} label={`Command ${i + 1}`} value={cmd} />
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-zinc-200 px-3 py-4 dark:border-zinc-800">
+                <Terminal className="h-4 w-4 shrink-0 text-zinc-400" animateOnView />
+                <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
+                  No commands added yet — click Add for an OS-matched sample.
+                </p>
+              </div>
+            )}
+          </Card>
+
           {/* Power controls */}
           <Card className="flex items-center justify-between gap-3">
             <div>
@@ -160,7 +202,7 @@ export function VpsInstanceDetailPage({
                 onClick={() => setRunning(true)}
                 className="h-9 gap-1.5 text-sm"
               >
-                <Play className="h-3.5 w-3.5" />
+                <Play className="h-3.5 w-3.5" animateOnHover animateOnTap />
                 Start
               </Button>
               <Button
@@ -169,7 +211,7 @@ export function VpsInstanceDetailPage({
                 onClick={() => setRunning(false)}
                 className="h-9 gap-1.5 text-sm"
               >
-                <Square className="h-3.5 w-3.5" />
+                <Square className="h-3.5 w-3.5" animateOnHover animateOnTap />
                 Stop
               </Button>
               <Button
@@ -178,7 +220,7 @@ export function VpsInstanceDetailPage({
                 onClick={() => setRunning(true)}
                 className="h-9 gap-1.5 text-sm"
               >
-                <RotateCw className="h-3.5 w-3.5" />
+                <RotateCw className="h-3.5 w-3.5" animateOnHover animateOnTap />
                 Restart
               </Button>
             </div>
@@ -228,6 +270,13 @@ export function VpsInstanceDetailPage({
         onSave={(next) =>
           setD((prev) => ({ ...prev, hostname: next.hostname, os: next.os }))
         }
+      />
+
+      <AddRunCommandDialog
+        open={addCommandOpen}
+        onOpenChange={setAddCommandOpen}
+        os={d.os}
+        onAdd={(command) => setCommands((prev) => [...prev, command])}
       />
 
       <ConfirmDialog

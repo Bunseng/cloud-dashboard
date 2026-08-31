@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, Plus, Save, Trash2, UserPlus, Users } from "lucide-react";
-
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { Plus } from "@/components/animate-ui/icons/plus";
+import { Save } from "@/components/animate-ui/icons/save";
+import { Trash2 } from "@/components/animate-ui/icons/trash-2";
+import { UserPlus } from "@/components/animate-ui/icons/user-plus";
+import { Users } from "@/components/animate-ui/icons/users";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -199,7 +203,7 @@ function MemberTab({ group, onChange }: { group: Group; onChange: () => void }) 
           onClick={() => setInviteOpen(true)}
           className="h-9 shrink-0 gap-1.5 px-4 text-sm"
         >
-          <UserPlus className="h-4 w-4" />
+          <UserPlus className="h-4 w-4" animateOnHover animateOnTap />
           Invite User
         </Button>
       </div>
@@ -238,7 +242,7 @@ function MemberTab({ group, onChange }: { group: Group; onChange: () => void }) 
                       onClick={() => setRemoveTarget(member)}
                       className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
                     >
-                      <Trash2 className="ml-auto h-4 w-4" />
+                      <Trash2 className="ml-auto h-4 w-4" animateOnHover animateOnTap />
                     </button>
                   </TableCell>
                 </TableRow>
@@ -247,7 +251,7 @@ function MemberTab({ group, onChange }: { group: Group; onChange: () => void }) 
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={5} className="p-0">
                   <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                    <Users className="mb-3 h-10 w-10 text-zinc-300 dark:text-zinc-700" strokeWidth={1.5} />
+                    <Users className="mb-3 h-10 w-10 text-zinc-300 dark:text-zinc-700" strokeWidth={1.5} animateOnView />
                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                       No members yet
                     </p>
@@ -349,7 +353,7 @@ function PermissionTab({ group, onChange }: { group: Group; onChange: () => void
             }}
             className="h-9 gap-1.5 px-4 text-sm"
           >
-            <Save className="h-3.5 w-3.5" />
+            <Save className="h-3.5 w-3.5" animateOnHover animateOnTap />
             Save Permissions
           </Button>
         </div>
@@ -390,7 +394,7 @@ function SettingTab({
             }}
             className="h-9 shrink-0 gap-1.5 px-4 text-sm"
           >
-            <Save className="h-3.5 w-3.5" />
+            <Save className="h-3.5 w-3.5" animateOnHover animateOnTap />
             Save
           </Button>
         </div>
@@ -446,7 +450,7 @@ export function GroupDetailPage({ groupId, onBack }: { groupId: string; onBack: 
           onClick={onBack}
           className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline dark:text-[#6FA8D8]"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
           Back to Group Members
         </button>
         <p className="mt-5 text-sm text-zinc-500 dark:text-zinc-400">
@@ -467,7 +471,7 @@ export function GroupDetailPage({ groupId, onBack }: { groupId: string; onBack: 
         onClick={onBack}
         className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
         Back to Group Members
       </button>
 

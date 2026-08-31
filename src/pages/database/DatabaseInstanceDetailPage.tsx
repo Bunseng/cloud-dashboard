@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { ChevronLeft, Lock, Pencil, Plus, X } from "lucide-react";
-
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { Lock } from "@/components/animate-ui/icons/lock";
+import { Pencil } from "@/components/animate-ui/icons/pencil";
+import { Plus } from "@/components/animate-ui/icons/plus";
+import { X } from "@/components/animate-ui/icons/x";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -88,7 +91,7 @@ export function DatabaseInstanceDetailPage({
         onClick={onBack}
         className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
         Back to Subscriptions
       </button>
 
@@ -104,7 +107,7 @@ export function DatabaseInstanceDetailPage({
           onClick={() => setEditOpen(true)}
           className="h-9 shrink-0 gap-1.5 px-8 text-sm"
         >
-          <Pencil className="h-3.5 w-3.5" />
+          <Pencil className="h-3.5 w-3.5" animateOnHover animateOnTap />
           Edit
         </Button>
       </div>
@@ -177,7 +180,7 @@ export function DatabaseInstanceDetailPage({
               </Card>
             ) : (
               <Card className="flex flex-col items-center justify-center border-dashed text-center">
-                <Lock className="h-6 w-6 text-zinc-300 dark:text-zinc-700" strokeWidth={1.5} />
+                <Lock className="h-6 w-6 text-zinc-300 dark:text-zinc-700" strokeWidth={1.5} animateOnView />
                 <CardTitle className="mt-2">External Connection</CardTitle>
                 <p className="mt-1 text-[13px] text-[#71717a] dark:text-zinc-400">
                   Add an IP to the whitelist below to unlock connecting from
@@ -201,7 +204,7 @@ export function DatabaseInstanceDetailPage({
                 onClick={() => setAddIpOpen(true)}
                 className="h-9 shrink-0 gap-1.5 text-sm"
               >
-                <Plus className="h-4 w-4" strokeWidth={2.5} />
+                <Plus className="h-4 w-4" strokeWidth={2.5} animateOnHover animateOnTap />
                 Add
               </Button>
             </div>
@@ -220,7 +223,7 @@ export function DatabaseInstanceDetailPage({
                       onClick={() => setIpWhitelist((prev) => prev.filter((v) => v !== ip))}
                       className="text-zinc-400 hover:text-red-500"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4" animateOnHover animateOnTap />
                     </button>
                   </li>
                 ))}

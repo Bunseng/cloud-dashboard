@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Files, Trash2 } from "lucide-react";
-
+import { Files } from "@/components/animate-ui/icons/files";
+import { Trash2 } from "@/components/animate-ui/icons/trash-2";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -163,7 +163,7 @@ export function BucketsTable({
                         aria-label={`Delete ${row.name}`}
                         className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" animateOnHover animateOnTap />
                       </button>
                     </div>
                   </TableCell>
@@ -176,6 +176,7 @@ export function BucketsTable({
                     <Files
                       className="mb-3 h-10 w-10 text-zinc-300 dark:text-zinc-700"
                       strokeWidth={1.5}
+                      animateOnView
                     />
                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                       {emptyTitle}
@@ -221,7 +222,7 @@ export function BucketsTable({
                 aria-label={label}
                 className="h-7 w-7 border-zinc-200 dark:border-zinc-800"
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" animateOnHover animateOnTap />
               </Button>
             ))}
           </div>

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Files, Plus, Trash2 } from "lucide-react";
+import { Files } from "@/components/animate-ui/icons/files";
+import { Plus } from "@/components/animate-ui/icons/plus";
+import { Trash2 } from "@/components/animate-ui/icons/trash-2";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -83,7 +85,7 @@ export function ResourceListView({
           onClick={onCreate}
           className="h-9 shrink-0 px-4 text-sm"
         >
-          <Plus className="mr-1.5 h-4 w-4" strokeWidth={2.5} />
+          <Plus className="mr-1.5 h-4 w-4" strokeWidth={2.5} animateOnHover animateOnTap />
           {createLabel}
         </Button>
       </div>
@@ -151,7 +153,7 @@ export function ResourceListView({
                         onClick={() => setDeleteTarget(row)}
                         className="text-red-500 hover:text-red-600 dark:text-red-400"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" animateOnHover animateOnTap />
                       </button>
                     </div>
                   </TableCell>
@@ -164,6 +166,7 @@ export function ResourceListView({
                     <Files
                       className="mb-3 h-10 w-10 text-zinc-300 dark:text-zinc-700"
                       strokeWidth={1.5}
+                      animateOnView
                     />
                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                       {emptyTitle}
@@ -211,7 +214,7 @@ export function ResourceListView({
                 aria-label={label}
                 className="h-8 w-8 border-zinc-200 dark:border-zinc-800"
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" animateOnHover animateOnTap />
               </Button>
             ))}
           </div>

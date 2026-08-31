@@ -1,4 +1,5 @@
-import { Search, Sun } from "lucide-react";
+import { Search } from "@/components/animate-ui/icons/search";
+import { Sun } from "@/components/animate-ui/icons/sun";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,9 @@ export function PublicHeader({
 
       <div className="flex flex-1 items-center gap-3 px-6">
         <div className="relative w-full max-w-[420px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+            <Search className="h-4 w-4 text-zinc-400" animateOnView />
+          </div>
           <Input placeholder="Search" className="pl-9" />
         </div>
 
@@ -53,7 +56,7 @@ export function PublicHeader({
             aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
             className="h-9 w-9 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
           >
-            <Sun className="h-[18px] w-[18px]" />
+            <Sun className="h-[18px] w-[18px]" animateOnHover animateOnTap />
           </Button>
           <Button variant="brand" onClick={onLogIn} className="h-9 px-5 text-sm">
             Log In

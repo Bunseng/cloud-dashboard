@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronLeft } from "lucide-react";
-
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
 import { Button } from "@/components/ui/button";
 
 import { ResourceListView } from "../../components/ResourceListView";
@@ -82,6 +81,8 @@ export const SERVICE_ROWS = [
     replicas: "2 / 2",
     detail: {
       containerImage: "nginx:1.27-alpine",
+      registryAuth: "public" as "public" | "private",
+      registryId: "",
       replica: "2",
       restartPolicy: { condition: "On", delay: "5 Second", maxAttempts: "3", window: "30 Second" },
       resource: { cpu: "1 Core", memory: "512 MB" },
@@ -115,6 +116,8 @@ export const SERVICE_ROWS = [
     replicas: "1 / 1",
     detail: {
       containerImage: "cloudplus/api:2.4.1",
+      registryAuth: "public" as "public" | "private",
+      registryId: "",
       replica: "1",
       restartPolicy: { condition: "On", delay: "10 Second", maxAttempts: "5", window: "30 Second" },
       resource: { cpu: "1 Core", memory: "1 GB" },
@@ -151,6 +154,8 @@ export const SERVICE_ROWS = [
     replicas: "0 / 1",
     detail: {
       containerImage: "zeng/jerry",
+      registryAuth: "public" as "public" | "private",
+      registryId: "",
       replica: "2",
       restartPolicy: { condition: "On", delay: "12 Second", maxAttempts: "5", window: "12 Second" },
       resource: { cpu: "2 Core", memory: "256 MB" },
@@ -291,7 +296,7 @@ export function StackListPage({
         onClick={onBack}
         className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
         Back to Subscriptions
       </button>
 
@@ -342,6 +347,8 @@ export function ServiceListPage({
         replicas: fields.autoStart ? `${fields.replica} / ${fields.replica}` : `0 / ${fields.replica}`,
         detail: {
           containerImage: fields.image,
+          registryAuth: fields.registryAuth,
+          registryId: fields.registryId,
           replica: fields.replica,
           restartPolicy: { condition: "On", delay: "5 Second", maxAttempts: "3", window: "30 Second" },
           resource: fields.resourcePreset,
@@ -363,7 +370,7 @@ export function ServiceListPage({
         onClick={onBack}
         className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
         Back to Stack List
       </button>
 

@@ -1,18 +1,16 @@
-import type { CSSProperties, ReactNode } from "react";
-import {
-  AppWindow,
-  ArrowRight,
-  Box,
-  Database,
-  ImagePlay,
-  Rocket,
-  Search,
-  Server,
-  Sparkles,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+import type { ComponentType, CSSProperties, ReactNode } from "react";
+import { type LucideIcon } from "lucide-react";
 
+import { AppWindow } from "@/components/animate-ui/icons/app-window";
+import { ArrowRight } from "@/components/animate-ui/icons/arrow-right";
+import { Box } from "@/components/animate-ui/icons/box";
+import { Database } from "@/components/animate-ui/icons/database";
+import { ImagePlay } from "@/components/animate-ui/icons/image-play";
+import { Rocket } from "@/components/animate-ui/icons/rocket";
+import { Search } from "@/components/animate-ui/icons/search";
+import { Server } from "@/components/animate-ui/icons/server";
+import { Sparkles } from "@/components/animate-ui/icons/sparkles";
+import { Wallet } from "@/components/animate-ui/icons/wallet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,7 +41,17 @@ import { BILLING_RECORDS, PLACEHOLDER_SUBSCRIPTION_COUNT } from "../data/billing
 
 interface ServiceCardData {
   id: string;
-  icon: LucideIcon;
+  icon:
+    | LucideIcon
+    | ComponentType<{
+        className?: string;
+        strokeWidth?: number;
+        animate?: boolean;
+        animateOnHover?: boolean;
+        animateOnTap?: boolean;
+        animateOnView?: boolean;
+        loop?: boolean;
+      }>;
   title: string;
   description: string;
   span: number;
@@ -144,7 +152,7 @@ function HomeHero({ onOpenPlanning }: { onOpenPlanning: () => void }) {
       <div className="relative flex flex-wrap items-center justify-between gap-6">
         <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-3 motion-safe:duration-500">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white">
-            <Sparkles className="h-3.5 w-3.5" />
+            <Sparkles className="h-3.5 w-3.5" animateOnView />
             Welcome back
           </span>
           <h1 className="mt-3 text-[28px] font-bold leading-[32px] tracking-[-0.6px] text-white sm:text-[30px]">
@@ -157,7 +165,9 @@ function HomeHero({ onOpenPlanning }: { onOpenPlanning: () => void }) {
 
         <div className="flex shrink-0 items-center gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-3 motion-safe:duration-500">
           <div className="relative w-[220px] sm:w-[260px]">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
+            <div className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center">
+              <Search className="h-4 w-4 text-white/60" animateOnView />
+            </div>
             <Input
               placeholder="Search"
               className="h-10 border-white/20 bg-white/10 pl-10 text-white placeholder:text-white/60 focus-visible:ring-white/40"
@@ -182,7 +192,17 @@ function QuickStat({
   sub,
   index,
 }: {
-  icon: LucideIcon;
+  icon:
+    | LucideIcon
+    | ComponentType<{
+        className?: string;
+        strokeWidth?: number;
+        animate?: boolean;
+        animateOnHover?: boolean;
+        animateOnTap?: boolean;
+        animateOnView?: boolean;
+        loop?: boolean;
+      }>;
   label: string;
   value: string;
   sub?: ReactNode;
@@ -194,7 +214,7 @@ function QuickStat({
       className="flex items-center gap-3.5 rounded-xl border border-[#e5e7eb] p-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500 motion-safe:fill-mode-both dark:border-zinc-800"
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FF] dark:bg-zinc-800">
-        <Icon className="h-[18px] w-[18px] text-[#1C75BC] dark:text-[#6FA8D8]" strokeWidth={1.75} />
+        <Icon className="h-[18px] w-[18px] text-[#1C75BC] dark:text-[#6FA8D8]" strokeWidth={1.75} animateOnView />
       </span>
       <div className="min-w-0">
         <p className="truncate text-[13px] text-[#71717a] dark:text-zinc-400">{label}</p>
@@ -218,7 +238,17 @@ function ServiceCard({
 }: {
   index: number;
   span: number;
-  icon: LucideIcon;
+  icon:
+    | LucideIcon
+    | ComponentType<{
+        className?: string;
+        strokeWidth?: number;
+        animate?: boolean;
+        animateOnHover?: boolean;
+        animateOnTap?: boolean;
+        animateOnView?: boolean;
+        loop?: boolean;
+      }>;
   title: string;
   description: string;
   comingSoon?: boolean;
@@ -248,7 +278,7 @@ function ServiceCard({
 
       <div className="flex items-start justify-between gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] motion-safe:transition-transform motion-safe:duration-300 group-hover:-rotate-3 group-hover:scale-110 dark:bg-zinc-800">
-          <Icon className="h-[22px] w-[22px] text-[#1C75BC] dark:text-[#6FA8D8]" strokeWidth={1.5} />
+          <Icon className="h-[22px] w-[22px] text-[#1C75BC] dark:text-[#6FA8D8]" strokeWidth={1.5} animateOnHover animateOnTap />
         </span>
         {comingSoon && (
           <span className="shrink-0 rounded-full bg-[#f3f3f5] px-2.5 py-[3px] text-[11px] font-medium text-[#71717a] dark:bg-zinc-800 dark:text-zinc-400">
@@ -265,7 +295,7 @@ function ServiceCard({
       {clickable && (
         <span className="mt-5 flex items-center gap-1.5 text-[13px] font-medium text-[#1C75BC] dark:text-[#6FA8D8]">
           Open
-          <ArrowRight className="h-3.5 w-3.5 motion-safe:transition-transform group-hover:translate-x-0.5" />
+          <ArrowRight className="h-3.5 w-3.5 motion-safe:transition-transform group-hover:translate-x-0.5" animateOnHover animateOnTap />
         </span>
       )}
     </ClickableSurface>

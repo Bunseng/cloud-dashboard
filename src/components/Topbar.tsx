@@ -1,4 +1,7 @@
-import { BellRing, ChevronRight, PanelLeft, Sun } from "lucide-react";
+import { BellRing } from "@/components/animate-ui/icons/bell-ring";
+import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
+import { PanelLeft } from "@/components/animate-ui/icons/panel-left";
+import { Sun } from "@/components/animate-ui/icons/sun";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -28,7 +31,7 @@ export function Topbar({
         aria-label="Toggle sidebar"
         className="h-8 w-8 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
       >
-        <PanelLeft className="h-4 w-4" />
+        <PanelLeft className="h-4 w-4" animateOnHover animateOnTap />
       </Button>
 
       <Separator
@@ -39,7 +42,7 @@ export function Topbar({
       <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
         {breadcrumb.map((crumb, i) => (
           <span key={crumb} className="flex items-center gap-1.5">
-            {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-zinc-400" />}
+            {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-zinc-400" animateOnView />}
             <span
               className={
                 i === breadcrumb.length - 1
@@ -65,7 +68,7 @@ export function Topbar({
             aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
             className="h-8 w-8 rounded-lg text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
           >
-            <Sun className="h-4 w-4" />
+            <Sun className="h-4 w-4" animateOnHover animateOnTap />
           </Button>
 
           <Button
@@ -74,7 +77,7 @@ export function Topbar({
             aria-label="Notifications, 1 unread"
             className="relative h-8 w-8 rounded-lg text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
           >
-            <BellRing className="h-4 w-4" />
+            <BellRing className="h-4 w-4" animateOnHover animateOnTap />
             <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border border-white bg-red-500 dark:border-zinc-950" />
           </Button>
         </div>

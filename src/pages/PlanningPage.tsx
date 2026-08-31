@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles } from "@/components/animate-ui/icons/sparkles";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -38,7 +38,7 @@ export function PlanningPage() {
     <div>
       <div className="mx-auto max-w-2xl text-center motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EFF6FF] px-3 py-1 text-xs font-semibold text-[#1C75BC] dark:bg-zinc-900 dark:text-[#6FA8D8]">
-          <Sparkles className="h-3.5 w-3.5" />
+          <Sparkles className="h-3.5 w-3.5" animateOnView />
           Pricing
         </span>
         <h1 className="mt-3 text-[30px] font-bold leading-tight tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
@@ -58,7 +58,7 @@ export function PlanningPage() {
         <TabsList className={PILL_TABS_LIST_CLASS + " h-auto flex-wrap justify-center gap-1"}>
           {PRICING_CATEGORIES.map((c) => (
             <TabsTrigger key={c.key} value={c.key} className={PILL_TAB_TRIGGER_CLASS + " gap-1.5"}>
-              <c.icon className="h-3.5 w-3.5" />
+              <c.icon className="h-3.5 w-3.5" animateOnHover animateOnTap />
               {c.label}
             </TabsTrigger>
           ))}

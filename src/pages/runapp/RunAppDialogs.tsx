@@ -1,6 +1,7 @@
 import { useEffect, useState, type DragEvent, type FormEvent } from "react";
-import { Plus, Upload, X } from "lucide-react";
-
+import { Plus } from "@/components/animate-ui/icons/plus";
+import { Upload } from "@/components/animate-ui/icons/upload";
+import { X } from "@/components/animate-ui/icons/x";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,8 +32,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { slugify } from "@/lib/utils";
 
 import { PILL_TABS_LIST_CLASS, PILL_TAB_TRIGGER_CLASS } from "../../components/atoms";
+import { RegistryAuthField } from "./RegistryDialogs";
 
 /* ------------------------------------------------------------------ *
  * Run App create/edit dialogs. Creating a whole new stack now happens
@@ -87,7 +90,7 @@ function EnvEditor({ rows, onChange }: { rows: EnvRow[]; onChange: (rows: EnvRow
             onClick={() => remove(i)}
             className="shrink-0 rounded-md p-2 text-zinc-400 hover:bg-zinc-100 hover:text-red-500 dark:hover:bg-zinc-900"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3.5 w-3.5" animateOnHover animateOnTap />
           </button>
         </div>
       ))}
@@ -97,7 +100,7 @@ function EnvEditor({ rows, onChange }: { rows: EnvRow[]; onChange: (rows: EnvRow
         onClick={() => onChange([...rows, { key: "", value: "" }])}
         className="h-8 gap-1.5 text-sm"
       >
-        <Plus className="h-3.5 w-3.5" />
+        <Plus className="h-3.5 w-3.5" animateOnHover animateOnTap />
         Add Variable
       </Button>
     </div>
@@ -110,6 +113,8 @@ export interface NewServiceFields {
   hostName: string;
   repository: string;
   autoStart: boolean;
+  registryAuth: "public" | "private";
+  registryId: string;
   env: EnvRow[];
   resourcePreset: (typeof RESOURCE_PRESETS)[number];
   replica: string;
@@ -132,8 +137,12 @@ export function CreateServiceDrawer({
   const [name, setName] = useState("");
   const [image, setImage] = useState("");
   const [hostName, setHostName] = useState("");
+  // Host Name follows Service Name (as a slug) until edited directly.
+  const [hostNameEdited, setHostNameEdited] = useState(false);
   const [repository, setRepository] = useState("");
   const [autoStart, setAutoStart] = useState(true);
+  const [registryAuth, setRegistryAuth] = useState<"public" | "private">("public");
+  const [registryId, setRegistryId] = useState("");
   const [env, setEnv] = useState<EnvRow[]>([]);
   const [presetLabel, setPresetLabel] = useState(RESOURCE_PRESETS[0].label);
   const [replica, setReplica] = useState("1");
@@ -146,8 +155,11 @@ export function CreateServiceDrawer({
     setName("");
     setImage("");
     setHostName("");
+    setHostNameEdited(false);
     setRepository("");
     setAutoStart(true);
+    setRegistryAuth("public");
+    setRegistryId("");
     setEnv([]);
     setPresetLabel(RESOURCE_PRESETS[0].label);
     setReplica("1");
@@ -163,6 +175,8 @@ export function CreateServiceDrawer({
       hostName: hostName.trim(),
       repository: repository.trim(),
       autoStart,
+      registryAuth,
+      registryId,
       env: env.filter((r) => r.key.trim()),
       resourcePreset: preset,
       replica: replica.trim() || "1",
@@ -210,7 +224,14 @@ export function CreateServiceDrawer({
                       id="new-service-name"
                       autoFocus
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setName(next);
+                        if (!hostNameEdited) {
+                          const slug = slugify(next);
+                          setHostName(slug ? `${slug}.cloudplus.app` : "");
+                        }
+                      }}
                       placeholder="web"
                       className="mt-2"
                     />
@@ -223,7 +244,7 @@ export function CreateServiceDrawer({
                       id="new-service-image"
                       value={image}
                       onChange={(e) => setImage(e.target.value)}
-                      placeholder="nginx:1.27-alpine"
+                      placeholder="example/image:latest"
                       className="mt-2 font-mono text-[13px]"
                     />
                   </div>
@@ -243,7 +264,10 @@ export function CreateServiceDrawer({
                     <Input
                       id="new-service-host"
                       value={hostName}
-                      onChange={(e) => setHostName(e.target.value)}
+                      onChange={(e) => {
+                        setHostName(e.target.value);
+                        setHostNameEdited(true);
+                      }}
                       placeholder="web-frontend.cloudplus.app"
                       className="mt-2 font-mono text-[13px]"
                     />
@@ -261,6 +285,15 @@ export function CreateServiceDrawer({
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+                <RegistryAuthField
+                  isPrivate={registryAuth === "private"}
+                  onIsPrivateChange={(isPrivate) => setRegistryAuth(isPrivate ? "private" : "public")}
+                  registryId={registryId}
+                  onRegistryIdChange={setRegistryId}
+                />
               </div>
 
               <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
@@ -357,6 +390,8 @@ export interface EditableServiceInfo {
   replica: string;
   resource: { cpu: string; memory: string };
   env: EnvRow[];
+  registryAuth: "public" | "private";
+  registryId: string;
 }
 
 /* Editing a service's info opens as a right-side Drawer, same 3-tab
@@ -386,6 +421,8 @@ export function EditServiceInfoDrawer({
   const [repository, setRepository] = useState(value.repository);
   const [replica, setReplica] = useState(value.replica);
   const [env, setEnv] = useState<EnvRow[]>(value.env);
+  const [registryAuth, setRegistryAuth] = useState(value.registryAuth);
+  const [registryId, setRegistryId] = useState(value.registryId);
   const [presetLabel, setPresetLabel] = useState(
     RESOURCE_PRESETS.find((p) => p.cpu === value.resource.cpu && p.memory === value.resource.memory)
       ?.label ?? RESOURCE_PRESETS[0].label
@@ -399,6 +436,8 @@ export function EditServiceInfoDrawer({
       setRepository(value.repository);
       setReplica(value.replica);
       setEnv(value.env);
+      setRegistryAuth(value.registryAuth);
+      setRegistryId(value.registryId);
       setPresetLabel(
         RESOURCE_PRESETS.find((p) => p.cpu === value.resource.cpu && p.memory === value.resource.memory)
           ?.label ?? RESOURCE_PRESETS[0].label
@@ -441,6 +480,7 @@ export function EditServiceInfoDrawer({
                     id="edit-service-image"
                     value={image}
                     onChange={(e) => setImage(e.target.value)}
+                    placeholder="example/image:latest"
                     className="mt-2 font-mono text-[13px]"
                   />
                 </div>
@@ -475,6 +515,15 @@ export function EditServiceInfoDrawer({
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+                <RegistryAuthField
+                  isPrivate={registryAuth === "private"}
+                  onIsPrivateChange={(isPrivate) => setRegistryAuth(isPrivate ? "private" : "public")}
+                  registryId={registryId}
+                  onRegistryIdChange={setRegistryId}
+                />
               </div>
 
               <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
@@ -572,6 +621,8 @@ export function EditServiceInfoDrawer({
                 replica: replica.trim(),
                 resource: { cpu: preset.cpu, memory: preset.memory },
                 env: env.filter((r) => r.key.trim()),
+                registryAuth,
+                registryId,
               });
               onOpenChange(false);
             }}
@@ -725,7 +776,7 @@ export function RunAppUploadDialog({
               e.target.value = "";
             }}
           />
-          <Upload className="h-8 w-8 text-zinc-400" strokeWidth={1.5} />
+          <Upload className="h-8 w-8 text-zinc-400" strokeWidth={1.5} animateOnView />
           <p className="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
             Drag & drop a file here
           </p>
@@ -749,7 +800,7 @@ export function RunAppUploadDialog({
               onClick={() => setFile(null)}
               className="shrink-0 text-zinc-400 hover:text-red-500"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" animateOnHover animateOnTap />
             </button>
           </div>
         )}

@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { ChevronLeft, Plus, Upload, X } from "lucide-react";
-
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { Plus } from "@/components/animate-ui/icons/plus";
+import { Upload } from "@/components/animate-ui/icons/upload";
+import { X } from "@/components/animate-ui/icons/x";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PILL_TABS_LIST_CLASS, PILL_TAB_TRIGGER_CLASS } from "../../components/atoms";
 import { RESOURCE_PRESETS, RunAppEditorDialog, RunAppUploadDialog } from "./RunAppDialogs";
 import { STACK_ROWS } from "./RunAppComponents";
+import { RegistryAuthField } from "./RegistryDialogs";
 
 /* ------------------------------------------------------------------ *
  * Create Run App — full page, matching Figma's "RunApp Create" screen
@@ -49,10 +50,11 @@ interface EnvRow {
 interface ServiceDraft {
   id: string;
   name: string;
+  image: string;
   hostName: string;
   containerPort: string;
   registryAuth: "public" | "private";
-  registryCredential: string;
+  registryId: string;
   entrypoint: string;
   dependOn: string;
   env: EnvRow[];
@@ -64,10 +66,11 @@ function makeServiceDraft(): ServiceDraft {
   return {
     id: nextServiceId(),
     name: "",
+    image: "",
     hostName: "",
     containerPort: "",
     registryAuth: "public",
-    registryCredential: "Default",
+    registryId: "",
     entrypoint: "",
     dependOn: "",
     env: [],
@@ -113,7 +116,7 @@ function EnvRowInputs({
             onClick={() => remove(i)}
             className="shrink-0 rounded-md p-2 text-zinc-400 hover:bg-zinc-100 hover:text-red-500 dark:hover:bg-zinc-900"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3.5 w-3.5" animateOnHover animateOnTap />
           </button>
         </div>
       ))}
@@ -150,7 +153,10 @@ function ServiceBlock({
   return (
     <Card className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <CardTitle>Service Name</CardTitle>
+        {/* Title tracks what's typed below — "Service Name" is a
+            placeholder heading, not a fixed label, so a card reads as
+            e.g. "web" the moment you name it instead of staying generic. */}
+        <CardTitle>{service.name.trim() || "Service Name"}</CardTitle>
         {removable && (
           <button
             type="button"
@@ -183,6 +189,16 @@ function ServiceBlock({
 
         <TabsContent value="info" className="mt-3 space-y-3">
           <div>
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Container Image</p>
+            <Input
+              value={service.image}
+              onChange={(e) => set("image", e.target.value)}
+              placeholder="example/image:latest"
+              className="mt-2 h-9 font-mono text-[13px]"
+            />
+          </div>
+
+          <div>
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Domain Name</p>
             <div className="mt-2 flex items-center gap-1">
               <Input
@@ -200,41 +216,12 @@ function ServiceBlock({
             </div>
           </div>
 
-          <div>
-            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              Registry Authentication
-            </p>
-            <div className="mt-2 flex items-center gap-4">
-              <Label className="flex items-center gap-2 font-normal text-zinc-900 dark:text-zinc-100">
-                <Checkbox
-                  checked={service.registryAuth === "public"}
-                  onCheckedChange={(checked) => checked && set("registryAuth", "public")}
-                />
-                Public
-              </Label>
-              <Label className="flex items-center gap-2 font-normal text-zinc-900 dark:text-zinc-100">
-                <Checkbox
-                  checked={service.registryAuth === "private"}
-                  onCheckedChange={(checked) => checked && set("registryAuth", "private")}
-                />
-                Private
-              </Label>
-            </div>
-            <Select
-              value={service.registryCredential}
-              onValueChange={(v) => set("registryCredential", v)}
-              disabled={service.registryAuth === "public"}
-            >
-              <SelectTrigger className="mt-2 h-8 w-full disabled:opacity-60">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Default">Default</SelectItem>
-                <SelectItem value="Docker Hub">Docker Hub</SelectItem>
-                <SelectItem value="Private Registry">Private Registry</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <RegistryAuthField
+            isPrivate={service.registryAuth === "private"}
+            onIsPrivateChange={(isPrivate) => set("registryAuth", isPrivate ? "private" : "public")}
+            registryId={service.registryId}
+            onRegistryIdChange={(registryId) => set("registryId", registryId)}
+          />
 
           <div>
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Entrypoint</p>
@@ -362,7 +349,12 @@ export function CreateRunAppPage({
     {
       stackName,
       sharedEnv,
-      services: services.map((s) => ({ name: s.name, hostName: s.hostName, containerPort: s.containerPort })),
+      services: services.map((s) => ({
+        name: s.name,
+        image: s.image,
+        hostName: s.hostName,
+        containerPort: s.containerPort,
+      })),
     },
     null,
     2
@@ -378,6 +370,7 @@ export function CreateRunAppPage({
           parsed.services.map((s: any) => ({
             ...makeServiceDraft(),
             name: s.name ?? "",
+            image: s.image ?? "",
             hostName: s.hostName ?? "",
             containerPort: s.containerPort ?? "",
           }))
@@ -403,7 +396,7 @@ export function CreateRunAppPage({
         onClick={onBack}
         className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
         Back to RunApp List
       </button>
 
@@ -443,7 +436,7 @@ export function CreateRunAppPage({
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button variant="outline" className="h-8 gap-1.5 text-sm">
               Upload Env
-              <Upload className="h-4 w-4" />
+              <Upload className="h-4 w-4" animateOnHover animateOnTap />
             </Button>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Download sample upload file here.{" "}
@@ -474,7 +467,7 @@ export function CreateRunAppPage({
             className="h-8 gap-1.5 text-sm"
           >
             Add Service
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" animateOnHover animateOnTap />
           </Button>
           <Button
             variant="outline"
@@ -482,7 +475,7 @@ export function CreateRunAppPage({
             className="h-8 gap-1.5 text-sm"
           >
             Editor
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" animateOnHover animateOnTap />
           </Button>
           <Button
             variant="outline"
@@ -490,7 +483,7 @@ export function CreateRunAppPage({
             className="h-8 gap-1.5 text-sm"
           >
             Upload
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" animateOnHover animateOnTap />
           </Button>
         </div>
 

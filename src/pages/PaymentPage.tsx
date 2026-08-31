@@ -1,7 +1,11 @@
 import { useState } from "react";
-import { ArrowUpRight, Download, Gem, Plus, Receipt, ShieldCheck } from "lucide-react";
+import { ArrowUpRight } from "@/components/animate-ui/icons/arrow-up-right";
+import { Download } from "@/components/animate-ui/icons/download";
+import { Gem } from "@/components/animate-ui/icons/gem";
+import { Plus } from "@/components/animate-ui/icons/plus";
+import { Receipt } from "@/components/animate-ui/icons/receipt";
+import { ShieldCheck } from "@/components/animate-ui/icons/shield-check";
 
-import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -32,7 +36,7 @@ function BonusHeroCard() {
 
       <div className="relative flex items-center gap-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
-          <Gem className="h-4.5 w-4.5" />
+          <Gem className="h-4.5 w-4.5" animateOnView />
         </div>
         <p className="text-sm font-medium text-white/90">Business Gold (BG)</p>
       </div>
@@ -92,7 +96,7 @@ function PaymentMethodsSection({
           onClick={onAddCard}
           className="flex h-[152px] w-full max-w-[280px] flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-zinc-200 text-zinc-500 motion-safe:transition-colors hover:border-[#1C75BC]/40 hover:text-[#1C75BC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-[#6FA8D8]"
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-5 w-5" animateOnHover animateOnTap />
           <span className="text-sm font-medium">Add Card</span>
         </button>
       </div>
@@ -114,10 +118,8 @@ function PaymentMethodsSection({
 }
 
 export function PaymentPage({
-  onTopUp,
   onViewBilling,
 }: {
-  onTopUp: () => void;
   onViewBilling: () => void;
 }) {
   // A short, real preview of recent activity (not a fabricated feed) —
@@ -142,10 +144,6 @@ export function PaymentPage({
             How you pay across every service — cards, scanning, and your Business Gold bonus.
           </p>
         </div>
-        <Button variant="brand" onClick={onTopUp} className="h-9 gap-1.5 px-4 text-sm">
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
-          Top Up
-        </Button>
       </div>
 
       <div className="mt-6">
@@ -168,7 +166,7 @@ export function PaymentPage({
           the app doesn't track. */}
       <Card className="mt-5 flex items-center gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] dark:bg-zinc-800">
-          <ShieldCheck className="h-4.5 w-4.5 text-[#1C75BC] dark:text-[#6FA8D8]" />
+          <ShieldCheck className="h-4.5 w-4.5 text-[#1C75BC] dark:text-[#6FA8D8]" animateOnView />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -189,7 +187,7 @@ export function PaymentPage({
           className="flex items-center gap-1 text-sm font-medium text-[#1C75BC] hover:underline dark:text-[#6FA8D8]"
         >
           View Billing Subscription
-          <ArrowUpRight className="h-3.5 w-3.5" />
+          <ArrowUpRight className="h-3.5 w-3.5" animateOnHover animateOnTap />
         </button>
       </div>
 
@@ -206,14 +204,14 @@ export function PaymentPage({
                 }
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                  <Receipt className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
+                  <Receipt className="h-4 w-4 text-zinc-500 dark:text-zinc-400" animateOnView />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     {r.name}
                   </p>
                   <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
-                    {cat?.icon && <cat.icon className="h-3 w-3" />}
+                    {cat?.icon && <cat.icon className="h-3 w-3" animateOnView />}
                     {r.plan} · {r.date}
                   </p>
                 </div>
@@ -221,7 +219,7 @@ export function PaymentPage({
                   <p className="whitespace-nowrap text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     {r.amount.toLocaleString()} {r.currency}
                   </p>
-                  <Download className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+                  <Download className="h-4 w-4 text-zinc-400 dark:text-zinc-500" animateOnView />
                 </div>
               </div>
             );

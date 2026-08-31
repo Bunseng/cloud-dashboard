@@ -1,7 +1,8 @@
+import type { ComponentType } from "react";
 import { useState } from "react";
-import { CheckCircle2, ChevronDown, ChevronLeft } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-
+import { CircleCheck as CheckCircle2 } from "@/components/animate-ui/icons/circle-check";
+import { ChevronDown } from "@/components/animate-ui/icons/chevron-down";
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -37,7 +38,14 @@ function PlanPicker({
   onContinue,
 }: {
   categoryKey: PricingServiceKey;
-  icon: LucideIcon;
+  icon: ComponentType<{
+    className?: string;
+    animate?: boolean | string;
+    animateOnView?: boolean | string;
+    animateOnHover?: boolean | string;
+    animateOnTap?: boolean | string;
+    loop?: boolean;
+  }>;
   tierId: string;
   onSelectTier: (id: string) => void;
   onContinue: () => void;
@@ -53,7 +61,7 @@ function PlanPicker({
       <Card>
         <div className="flex items-center gap-3">
           <div className={"flex h-11 w-11 shrink-0 items-center justify-center rounded-lg " + theme.chip}>
-            <Icon className={"h-5 w-5 " + theme.icon} />
+            <Icon className={"h-5 w-5 " + theme.icon} animateOnView />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-base font-bold text-zinc-900 dark:text-zinc-50">{tier.name}</p>
@@ -82,7 +90,11 @@ function PlanPicker({
           className="mt-4 flex w-full items-center justify-center gap-1 text-sm font-medium text-[#1C75BC] hover:underline dark:text-[#6FA8D8]"
         >
           {changingPlan ? "Hide other plans" : "Change Plan"}
-          <ChevronDown className={"h-3.5 w-3.5 transition-transform " + (changingPlan ? "rotate-180" : "")} />
+          <ChevronDown
+            className={"h-3.5 w-3.5 transition-transform " + (changingPlan ? "rotate-180" : "")}
+            animateOnHover
+            animateOnTap
+          />
         </button>
 
         {changingPlan && (
@@ -155,7 +167,7 @@ function SuccessPage({
   return (
     <div className="mx-auto flex max-w-[440px] flex-col items-center gap-4 py-10 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-500/10">
-        <CheckCircle2 className="h-9 w-9 text-emerald-500" />
+        <CheckCircle2 className="h-9 w-9 text-emerald-500" animateOnView />
       </div>
       <div>
         <p className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Subscription Active</p>
@@ -181,7 +193,14 @@ export function SubscribePage({
 }: {
   categoryKey: PricingServiceKey;
   categoryLabel: string;
-  icon: LucideIcon;
+  icon: ComponentType<{
+    className?: string;
+    animate?: boolean | string;
+    animateOnView?: boolean | string;
+    animateOnHover?: boolean | string;
+    animateOnTap?: boolean | string;
+    loop?: boolean;
+  }>;
   initialTierId: string;
   onDone: () => void;
   onCancel: () => void;
@@ -211,7 +230,7 @@ export function SubscribePage({
             onClick={onCancel}
             className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
             Back
           </button>
 

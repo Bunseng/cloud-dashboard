@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { Plus, ShieldCheck, Trash2, Users, X } from "lucide-react";
-
+import { Plus } from "@/components/animate-ui/icons/plus";
+import { ShieldCheck } from "@/components/animate-ui/icons/shield-check";
+import { Trash2 } from "@/components/animate-ui/icons/trash-2";
+import { Users } from "@/components/animate-ui/icons/users";
+import { X } from "@/components/animate-ui/icons/x";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -287,7 +290,7 @@ export function UserFormDrawer({
                     onClick={() => removeGrant(grant.key)}
                     className="shrink-0 rounded-md p-2 text-zinc-400 hover:bg-zinc-100 hover:text-red-500 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-zinc-900"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X className="h-3.5 w-3.5" animateOnHover animateOnTap />
                   </button>
                 </div>
               ))}
@@ -299,7 +302,7 @@ export function UserFormDrawer({
               onClick={() => setGrants((rows) => [...rows, emptyDraftGrant()])}
               className="mt-3 h-8 gap-1.5 text-sm"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5" animateOnHover animateOnTap />
               Add Bucket
             </Button>
           </div>
@@ -343,7 +346,7 @@ function ViewAccessKeyDialog({
       <DialogContent className="max-w-[480px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-[18px] w-[18px] text-[#1C75BC] dark:text-[#6FA8D8]" />
+            <ShieldCheck className="h-[18px] w-[18px] text-[#1C75BC] dark:text-[#6FA8D8]" animateOnView />
             {user?.name}'s Access Key
           </DialogTitle>
           <DialogDescription>
@@ -428,7 +431,7 @@ export function UserManagementTable() {
           onClick={openCreate}
           className="h-9 shrink-0 gap-1.5 px-4 text-sm"
         >
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
+          <Plus className="h-4 w-4" strokeWidth={2.5} animateOnHover animateOnTap />
           Add User
         </Button>
       </div>
@@ -498,7 +501,7 @@ export function UserManagementTable() {
                         onClick={() => setDeletingUser(user)}
                         className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" animateOnHover animateOnTap />
                       </button>
                     </div>
                   </TableCell>
@@ -511,6 +514,7 @@ export function UserManagementTable() {
                     <Users
                       className="mb-3 h-10 w-10 text-zinc-300 dark:text-zinc-700"
                       strokeWidth={1.5}
+                      animateOnView
                     />
                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                       No users yet
@@ -556,7 +560,7 @@ export function UserManagementTable() {
                 aria-label={label}
                 className="h-7 w-7 border-zinc-200 dark:border-zinc-800"
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" animateOnHover animateOnTap />
               </Button>
             ))}
           </div>

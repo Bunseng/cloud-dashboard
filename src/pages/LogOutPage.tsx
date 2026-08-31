@@ -1,18 +1,26 @@
+import type { ComponentType } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Cloud,
-  Headphones,
-  ImagePlay,
-  ShieldCheck,
-  Sparkles,
-  Users,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
 
+import { ArrowRight } from "@/components/animate-ui/icons/arrow-right";
+import { ArrowUpRight } from "@/components/animate-ui/icons/arrow-up-right";
+import { Cloud } from "@/components/animate-ui/icons/cloud";
+import { Headphones } from "@/components/animate-ui/icons/headphones";
+import { ImagePlay } from "@/components/animate-ui/icons/image-play";
+import { ShieldCheck } from "@/components/animate-ui/icons/shield-check";
+import { Sparkles } from "@/components/animate-ui/icons/sparkles";
+import { Users } from "@/components/animate-ui/icons/users";
+import { Zap } from "@/components/animate-ui/icons/zap";
 import { Button } from "@/components/ui/button";
+
+type AnimateIconComponent = ComponentType<{
+  className?: string;
+  strokeWidth?: number;
+  animate?: boolean;
+  animateOnHover?: boolean;
+  animateOnTap?: boolean;
+  animateOnView?: boolean;
+  loop?: boolean;
+}>;
 
 import { PublicFooter, PublicHeader } from "../components/PublicShell";
 
@@ -33,7 +41,7 @@ import heroCloud from "@/assets/hero-cloud.gif";
 
 interface LandingService {
   id: string;
-  icon: LucideIcon;
+  icon: AnimateIconComponent;
   title: string;
   items: string[];
 }
@@ -53,7 +61,7 @@ const LANDING_SERVICES: LandingService[] = [
   },
 ];
 
-const TRUST_BADGES: { icon: LucideIcon; label: string }[] = [
+const TRUST_BADGES: { icon: AnimateIconComponent; label: string }[] = [
   { icon: ShieldCheck, label: "Enterprise-grade security" },
   { icon: Zap, label: "99.9% uptime SLA" },
   { icon: Headphones, label: "24/7 local support" },
@@ -79,6 +87,7 @@ function LandingServiceCard({
         <Icon
           className="h-6 w-6 text-[#1C75BC] dark:text-[#6FA8D8]"
           strokeWidth={1.5}
+          animateOnView
         />
       </span>
 
@@ -100,7 +109,7 @@ function LandingServiceCard({
         className="mt-6 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[#1C75BC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
       >
         Learn More
-        <ArrowRight className="h-4 w-4 motion-safe:transition-transform group-hover:translate-x-0.5" />
+        <ArrowRight className="h-4 w-4 motion-safe:transition-transform group-hover:translate-x-0.5" animateOnHover animateOnTap />
       </button>
     </div>
   );
@@ -126,7 +135,7 @@ export function LogOutPage({
         <div className="relative flex items-center gap-12 overflow-visible">
           <div className="min-w-0 flex-1 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-3 motion-safe:duration-500">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EFF6FF] px-3 py-1 text-xs font-semibold text-[#1C75BC] dark:bg-zinc-900 dark:text-[#6FA8D8]">
-              <Sparkles className="h-3.5 w-3.5" />
+              <Sparkles className="h-3.5 w-3.5" animateOnView />
               Cloud platform for modern teams
             </span>
 
@@ -145,7 +154,7 @@ export function LogOutPage({
                 className="h-11 gap-1.5 px-6 text-sm font-medium"
               >
                 Get Started
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4" animateOnHover animateOnTap />
               </Button>
               <Button
                 variant="outline"
@@ -162,7 +171,7 @@ export function LogOutPage({
                   key={label}
                   className="flex items-center gap-2 text-[13px] font-medium text-zinc-500 dark:text-zinc-400"
                 >
-                  <Icon className="h-4 w-4 text-[#1C75BC] dark:text-[#6FA8D8]" />
+                  <Icon className="h-4 w-4 text-[#1C75BC] dark:text-[#6FA8D8]" animateOnView />
                   {label}
                 </span>
               ))}
@@ -193,7 +202,7 @@ export function LogOutPage({
 
             <div className="absolute -bottom-5 -left-6 flex items-center gap-2.5 rounded-xl border border-zinc-100 bg-white px-4 py-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FF] dark:bg-zinc-800">
-                <Users className="h-4 w-4 text-[#1C75BC] dark:text-[#6FA8D8]" />
+                <Users className="h-4 w-4 text-[#1C75BC] dark:text-[#6FA8D8]" animateOnView />
               </span>
               <div>
                 <p className="text-sm font-bold leading-tight text-zinc-900 dark:text-zinc-50">
@@ -232,7 +241,7 @@ export function LogOutPage({
           >
             Pricing
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white">
-              <ArrowUpRight className="h-4 w-4 text-[#1C75BC]" />
+              <ArrowUpRight className="h-4 w-4 text-[#1C75BC]" animateOnHover animateOnTap />
             </span>
           </button>
         </div>

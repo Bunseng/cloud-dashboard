@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { Building2, CreditCard, Loader2, Plus, QrCode } from "lucide-react";
+import { Building2 } from "@/components/animate-ui/icons/building-2";
+import { CreditCard } from "@/components/animate-ui/icons/credit-card";
+import { LoaderCircle as Loader2 } from "@/components/animate-ui/icons/loader-circle";
+import { Plus } from "@/components/animate-ui/icons/plus";
+import { QrCode } from "@/components/animate-ui/icons/qr-code";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -166,7 +170,10 @@ export function PaymentMethodPicker({
               }
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FF] dark:bg-zinc-800">
-                <method.icon className="h-5 w-5 text-[#1C75BC] dark:text-[#6FA8D8]" />
+                <method.icon
+                  className="h-5 w-5 text-[#1C75BC] dark:text-[#6FA8D8]"
+                  animateOnView
+                />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -226,7 +233,7 @@ export function PaymentMethodPicker({
           onClick={onAddCard}
           className="mt-2.5 flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-3.5 w-3.5" animateOnHover animateOnTap />
           {cards.length > 0 ? "Add another card" : "Add a card"}
         </button>
       )}
@@ -335,7 +342,7 @@ export function PayDialog({
           )
         ) : (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-[#1C75BC]" />
+            <Loader2 className="h-8 w-8 animate-spin text-[#1C75BC]" animate loop />
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               Confirming payment…
             </p>

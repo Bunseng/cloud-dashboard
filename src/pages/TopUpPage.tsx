@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, CheckCircle2, Coins } from "lucide-react";
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
+import { CircleCheck as CheckCircle2 } from "@/components/animate-ui/icons/circle-check";
+import { Coins } from "@/components/animate-ui/icons/coins";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -55,7 +58,7 @@ function AmountCard({
     <div className="mx-auto max-w-[560px]">
       <Card>
         <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-          <Coins className="h-4 w-4 text-amber-500" />
+          <Coins className="h-4 w-4 text-amber-500" animateOnView />
           <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
             Select Amount to Top Up
           </p>
@@ -90,6 +93,7 @@ function AmountCard({
                   className={
                     "h-6 w-6 " + (isSelected ? "text-[#1C75BC] dark:text-[#6FA8D8]" : "text-amber-500")
                   }
+                  animateOnView
                 />
                 <span
                   className={
@@ -114,7 +118,7 @@ function AmountCard({
           className="mt-5 h-10 w-full gap-1.5 text-sm"
         >
           Continue
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4" animateOnHover animateOnTap />
         </Button>
       </Card>
     </div>
@@ -146,7 +150,7 @@ function PaymentMethodCard({
           onClick={onBack}
           className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
           Back
         </button>
       </div>
@@ -170,7 +174,7 @@ function SuccessPage({ amount, onDone }: { amount: number; onDone: () => void })
   return (
     <div className="mx-auto flex max-w-[440px] flex-col items-center gap-4 py-10 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-500/10">
-        <CheckCircle2 className="h-9 w-9 text-emerald-500" />
+        <CheckCircle2 className="h-9 w-9 text-emerald-500" animateOnView />
       </div>
       <div>
         <p className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Payment Successful</p>
