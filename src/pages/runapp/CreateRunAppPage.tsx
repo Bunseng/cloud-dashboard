@@ -47,6 +47,24 @@ interface EnvRow {
   value: string;
 }
 
+/* What a caller can pre-fill a service block with — every field
+   optional since Edit only knows what the underlying resource already
+   tracks (e.g. no "Depend On" or "Container Port" today). Missing
+   fields fall back to makeServiceDraft()'s blanks. */
+export interface RunAppServiceSeed {
+  name: string;
+  image?: string;
+  hostName?: string;
+  containerPort?: string;
+  registryAuth?: "public" | "private";
+  registryId?: string;
+  entrypoint?: string;
+  dependOn?: string;
+  env?: EnvRow[];
+  resourcePreset?: string;
+  replica?: string;
+}
+
 interface ServiceDraft {
   id: string;
   name: string;
@@ -312,13 +330,27 @@ function ServiceBlock({
 export function CreateRunAppPage({
   onBack,
   onCreate,
+  mode = "create",
+  initialStackName = "",
+  initialServices,
+  onSave,
 }: {
   onBack: () => void;
-  onCreate: (stack: (typeof STACK_ROWS)[number]) => void;
+  // Required for mode="create", unused for mode="edit".
+  onCreate?: (stack: (typeof STACK_ROWS)[number]) => void;
+  mode?: "create" | "edit";
+  initialStackName?: string;
+  initialServices?: RunAppServiceSeed[];
+  // Required for mode="edit", unused for mode="create".
+  onSave?: (nextName: string) => void;
 }) {
-  const [stackName, setStackName] = useState("");
+  const [stackName, setStackName] = useState(initialStackName);
   const [sharedEnv, setSharedEnv] = useState<EnvRow[]>([]);
-  const [services, setServices] = useState<ServiceDraft[]>([makeServiceDraft()]);
+  const [services, setServices] = useState<ServiceDraft[]>(() =>
+    initialServices && initialServices.length > 0
+      ? initialServices.map((seed) => ({ ...makeServiceDraft(), ...seed }))
+      : [makeServiceDraft()]
+  );
   const [editorOpen, setEditorOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
 
@@ -335,7 +367,11 @@ export function CreateRunAppPage({
 
   function submit() {
     if (!valid) return;
-    onCreate({
+    if (mode === "edit") {
+      onSave?.(trimmedName);
+      return;
+    }
+    onCreate?.({
       id: `stk-${Date.now()}`,
       name: trimmedName,
       status: { label: "Deploying", tone: "blue" },
@@ -397,11 +433,11 @@ export function CreateRunAppPage({
         className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
       >
         <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
-        Back to RunApp List
+        {mode === "edit" ? "Back to Stack List" : "Back to RunApp List"}
       </button>
 
       <h1 className="mt-5 text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
-        Create Run App
+        {mode === "edit" ? "Edit Run App" : "Create Run App"}
       </h1>
 
       <div className="mt-5 max-w-[640px] space-y-5">
@@ -492,7 +528,7 @@ export function CreateRunAppPage({
             Cancel
           </Button>
           <Button variant="brand" disabled={!valid} onClick={submit} className="h-9 text-sm">
-            Create
+            {mode === "edit" ? "Save Changes" : "Create"}
           </Button>
         </div>
       </div>

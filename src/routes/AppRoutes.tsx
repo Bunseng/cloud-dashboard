@@ -33,12 +33,14 @@ import { BucketDetailPage } from "../pages/storage/BucketDetailPage";
 
 import {
   RUNAPP_PLAN_STATS,
+  SERVICE_ROWS,
   ServiceListPage,
   StackListPage,
   STACK_ROWS,
 } from "../pages/runapp/RunAppComponents";
 import { ServiceDetailPage } from "../pages/runapp/ServiceDetailPage";
-import { CreateRunAppPage } from "../pages/runapp/CreateRunAppPage";
+import { CreateRunAppPage, type RunAppServiceSeed } from "../pages/runapp/CreateRunAppPage";
+import { RESOURCE_PRESETS } from "../pages/runapp/RunAppDialogs";
 
 import {
   DATABASE_SUBSCRIPTION_STATS,
@@ -256,11 +258,14 @@ function StackListRoute() {
   const { subNumber } = useParams<{ subNumber: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  // A stack just created on the full-page Create Run App flow arrives
-  // via router state (see CreateRunAppRoute) since this list has no
-  // shared store of its own.
-  const createdStack = (location.state as { createdStack?: (typeof STACK_ROWS)[number] } | null)
-    ?.createdStack;
+  // A stack just created or renamed on the full-page Create/Edit Run
+  // App flow arrives via router state (see CreateRunAppRoute /
+  // EditRunAppRoute) since this list has no shared store of its own.
+  const { createdStack, renamedStack } =
+    (location.state as {
+      createdStack?: (typeof STACK_ROWS)[number];
+      renamedStack?: { from: string; to: string };
+    } | null) ?? {};
   return (
     <StackListPage
       subscriptionNumber={subNumber ?? ""}
@@ -270,7 +275,11 @@ function StackListRoute() {
       }
       onNewSubscription={() => navigate("/planning")}
       onCreateStack={() => navigate(`/runapp/${subNumber}/create`)}
+      onEditStack={(stackName: string) =>
+        navigate(`/runapp/${subNumber}/${encodeURIComponent(stackName)}/edit`)
+      }
       createdStack={createdStack}
+      renamedStack={renamedStack}
     />
   );
 }
@@ -283,6 +292,42 @@ function CreateRunAppRoute() {
       onBack={() => navigate(`/runapp/${subNumber}`)}
       onCreate={(stack) =>
         navigate(`/runapp/${subNumber}`, { replace: true, state: { createdStack: stack } })
+      }
+    />
+  );
+}
+
+function EditRunAppRoute() {
+  const { subNumber, stackName } = useParams<{ subNumber: string; stackName: string }>();
+  const navigate = useNavigate();
+  const decodedName = decodeURIComponent(stackName ?? "");
+  // Same 3 sample services every stack's Service List shows today (this
+  // mock has no real per-stack service store) — seeded into the same
+  // "Create Run App" fields so editing shows exactly what creating did.
+  const initialServices: RunAppServiceSeed[] = SERVICE_ROWS.map((row) => ({
+    name: row.name,
+    image: row.detail.containerImage,
+    hostName: row.detail.hostName === "NONE" ? "" : row.detail.hostName,
+    registryAuth: row.detail.registryAuth,
+    registryId: row.detail.registryId,
+    env: row.detail.env,
+    resourcePreset:
+      RESOURCE_PRESETS.find(
+        (p) => p.cpu === row.detail.resource.cpu && p.memory === row.detail.resource.memory
+      )?.label ?? RESOURCE_PRESETS[0].label,
+    replica: row.detail.replica,
+  }));
+  return (
+    <CreateRunAppPage
+      mode="edit"
+      initialStackName={decodedName}
+      initialServices={initialServices}
+      onBack={() => navigate(`/runapp/${subNumber}`)}
+      onSave={(nextName) =>
+        navigate(`/runapp/${subNumber}`, {
+          replace: true,
+          state: { renamedStack: { from: decodedName, to: nextName } },
+        })
       }
     />
   );
@@ -444,6 +489,7 @@ export default function DashboardPage() {
         <Route path="/runapp" element={<RunAppRoute />} />
         <Route path="/runapp/:subNumber" element={<StackListRoute />} />
         <Route path="/runapp/:subNumber/create" element={<CreateRunAppRoute />} />
+        <Route path="/runapp/:subNumber/:stackName/edit" element={<EditRunAppRoute />} />
         <Route path="/runapp/:subNumber/:stackName" element={<ServiceListRoute />} />
         <Route path="/runapp/:subNumber/:stackName/:serviceName" element={<ServiceDetailRoute />} />
         <Route path="/database" element={<DatabaseRoute />} />

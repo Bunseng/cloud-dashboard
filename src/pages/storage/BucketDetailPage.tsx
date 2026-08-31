@@ -1,11 +1,19 @@
 import { useState } from "react";
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
 import { Download } from "@/components/animate-ui/icons/download";
+import { Ellipsis } from "@/components/animate-ui/icons/ellipsis";
+import { Eye } from "@/components/animate-ui/icons/eye";
 import { Pencil } from "@/components/animate-ui/icons/pencil";
 import { Trash2 } from "@/components/animate-ui/icons/trash-2";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -310,28 +318,31 @@ function BucketFileTab() {
                   {row.modified}
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      className="text-sm font-medium text-[#1C75BC] hover:underline dark:text-[#6FA8D8]"
-                    >
-                      View Detail
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Download ${row.name}`}
-                      className="text-[#1C75BC] hover:text-[#17629F] dark:text-[#6FA8D8]"
-                    >
-                      <Download className="h-4 w-4" animateOnHover animateOnTap />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Delete ${row.name}`}
-                      className="text-red-500 hover:text-red-600 dark:text-red-400"
-                    >
-                      <Trash2 className="h-4 w-4" animateOnHover animateOnTap />
-                    </button>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`Actions for ${row.name}`}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                      >
+                        <Ellipsis className="h-4 w-4" animateOnHover animateOnTap />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem>
+                        <Eye className="h-4 w-4" />
+                        View Detail
+                      </DropdownMenuItem>
+                      <DropdownMenuItem aria-label={`Download ${row.name}`}>
+                        <Download className="h-4 w-4" />
+                        Download
+                      </DropdownMenuItem>
+                      <DropdownMenuItem variant="destructive" aria-label={`Delete ${row.name}`}>
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}

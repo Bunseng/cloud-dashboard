@@ -1,12 +1,22 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { Ellipsis } from "@/components/animate-ui/icons/ellipsis";
+import { Eye } from "@/components/animate-ui/icons/eye";
 import { Files } from "@/components/animate-ui/icons/files";
+import { Pencil } from "@/components/animate-ui/icons/pencil";
 import { Plus } from "@/components/animate-ui/icons/plus";
 import { Trash2 } from "@/components/animate-ui/icons/trash-2";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -34,6 +44,14 @@ type ResourceColumn = {
   render?: (row: ResourceRow) => ReactNode;
 };
 
+type ResourceRowAction = {
+  key: string;
+  label: ReactNode;
+  icon: (props: { className?: string; animateOnHover?: boolean; animateOnTap?: boolean }) => ReactNode;
+  onSelect: () => void;
+  disabled?: boolean;
+};
+
 /* Generic resource table — shared by the Stack and Database lists so a
    new list is a column config plus rows, not another table component.
    Create opens the caller's own dialog (`onCreate`); delete asks for
@@ -49,7 +67,9 @@ export function ResourceListView({
   pageCount = 1,
   onViewDetail,
   onCreate,
+  onEdit,
   onDelete,
+  extraActions,
 }: {
   columns: ResourceColumn[];
   rows: ResourceRow[];
@@ -60,7 +80,14 @@ export function ResourceListView({
   pageCount?: number;
   onViewDetail?: (name: string) => void;
   onCreate?: () => void;
+  // Optional — only resources with something worth editing outside
+  // their own detail page (e.g. a stack's name) pass this in.
+  onEdit?: (row: ResourceRow) => void;
   onDelete?: (row: ResourceRow) => void;
+  // Optional — extra per-row actions (e.g. a stack's Pull & Re-deploy /
+  // Pull & Restart / Stop) rendered between Edit and Delete, so a
+  // resource-specific action set doesn't need its own dropdown.
+  extraActions?: (row: ResourceRow) => ResourceRowAction[];
 }) {
   const [rowsPerPage, setRowsPerPage] = useState("10");
   const [selected, setSelected] = useState<(string | number)[]>([]);
@@ -139,23 +166,52 @@ export function ResourceListView({
                     </TableCell>
                   ))}
                   <TableCell className="whitespace-nowrap text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      <button
-                        type="button"
-                        onClick={() => onViewDetail?.(row.name)}
-                        className="text-sm font-medium text-[#1C75BC] hover:underline dark:text-[#6FA8D8]"
-                      >
-                        View Detail
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Delete ${row.name}`}
-                        onClick={() => setDeleteTarget(row)}
-                        className="text-red-500 hover:text-red-600 dark:text-red-400"
-                      >
-                        <Trash2 className="h-4 w-4" animateOnHover animateOnTap />
-                      </button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Actions for ${row.name}`}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                        >
+                          <Ellipsis className="h-4 w-4" animateOnHover animateOnTap />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => onViewDetail?.(row.name)}>
+                          <Eye className="h-4 w-4" />
+                          View Detail
+                        </DropdownMenuItem>
+                        {onEdit && (
+                          <DropdownMenuItem onSelect={() => onEdit(row)}>
+                            <Pencil className="h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        {extraActions && extraActions(row).length > 0 && (
+                          <>
+                            <DropdownMenuSeparator />
+                            {extraActions(row).map((action) => (
+                              <DropdownMenuItem
+                                key={action.key}
+                                disabled={action.disabled}
+                                onSelect={action.onSelect}
+                              >
+                                <action.icon className="h-4 w-4" />
+                                {action.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => setDeleteTarget(row)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))

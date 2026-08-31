@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { Rocket } from "@/components/animate-ui/icons/rocket";
+import { RotateCw } from "@/components/animate-ui/icons/rotate-cw";
+import { Square } from "@/components/animate-ui/icons/square";
 import { Button } from "@/components/ui/button";
 
 import { ResourceListView } from "../../components/ResourceListView";
@@ -270,24 +273,51 @@ export function StackListPage({
   onViewStack,
   onNewSubscription,
   onCreateStack,
+  onEditStack,
   createdStack,
+  renamedStack,
 }: {
   subscriptionNumber: string;
   onBack: () => void;
   onViewStack: (stackName: string) => void;
   onNewSubscription?: () => void;
   onCreateStack: () => void;
-  // A stack handed back from the full-page Create Run App flow (router
-  // state, since this list's rows are otherwise just local sample data
-  // with no shared store) — merged in on mount so it shows up right
-  // after creating it.
+  // Edit opens the same full-page Create Run App flow a new stack uses
+  // (mode="edit"), not a bare rename dialog, so a stack's fields always
+  // read the same way whether you're creating or editing it.
+  onEditStack: (stackName: string) => void;
+  // A stack handed back from the full-page Create/Edit Run App flow
+  // (router state, since this list's rows are otherwise just local
+  // sample data with no shared store) — merged in on mount so it shows
+  // up right after creating or renaming it.
   createdStack?: (typeof STACK_ROWS)[number] | null;
+  renamedStack?: { from: string; to: string } | null;
 }) {
   // Local to this subscription's view — each StackListRoute mount starts
   // fresh from the sample STACK_ROWS, same as Storage's bucket list.
-  const [rows, setRows] = useState(() =>
-    createdStack ? [...STACK_ROWS, createdStack] : STACK_ROWS
-  );
+  const [rows, setRows] = useState(() => {
+    const base = createdStack ? [...STACK_ROWS, createdStack] : STACK_ROWS;
+    return renamedStack
+      ? base.map((r) => (r.name === renamedStack.from ? { ...r, name: renamedStack.to } : r))
+      : base;
+  });
+
+  // Pull & Re-deploy / Pull & Restart flip a stack to "Deploying" and
+  // settle back to "Running" a moment later, mirroring how a real deploy
+  // would report status — cleaned up on unmount so a route change can't
+  // trigger a state update after the component's gone.
+  const pendingTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => pendingTimers.current.forEach(clearTimeout), []);
+
+  function setStackStatus(id: string | number, status: { label: string; tone: string }) {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+  }
+
+  function pullAndDeploy(id: string | number) {
+    setStackStatus(id, { label: "Deploying", tone: "blue" });
+    const timer = setTimeout(() => setStackStatus(id, { label: "Running", tone: "green" }), 1200);
+    pendingTimers.current.push(timer);
+  }
 
   return (
     <div>
@@ -314,7 +344,35 @@ export function StackListPage({
             emptyDescription="Deploy your first stack and it will show up here."
             onViewDetail={onViewStack}
             onCreate={onCreateStack}
+            onEdit={(row) => onEditStack(row.name)}
             onDelete={(row) => setRows((prev) => prev.filter((r) => r.id !== row.id))}
+            extraActions={(row) => {
+              const isStopped = row.status.label === "Stopped";
+              const isDeploying = row.status.label === "Deploying";
+              return [
+                {
+                  key: "pull-redeploy",
+                  label: "Pull & Re-deploy",
+                  icon: Rocket,
+                  disabled: isDeploying,
+                  onSelect: () => pullAndDeploy(row.id),
+                },
+                {
+                  key: "pull-restart",
+                  label: "Pull & Restart",
+                  icon: RotateCw,
+                  disabled: isDeploying,
+                  onSelect: () => pullAndDeploy(row.id),
+                },
+                {
+                  key: "stop",
+                  label: "Stop",
+                  icon: Square,
+                  disabled: isStopped,
+                  onSelect: () => setStackStatus(row.id, { label: "Stopped", tone: "zinc" }),
+                },
+              ];
+            }}
           />
         </div>
         <RunAppSubscriptionPanel onNewSubscription={onNewSubscription} />

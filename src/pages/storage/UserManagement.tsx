@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Ellipsis } from "@/components/animate-ui/icons/ellipsis";
+import { Pencil } from "@/components/animate-ui/icons/pencil";
 import { Plus } from "@/components/animate-ui/icons/plus";
 import { ShieldCheck } from "@/components/animate-ui/icons/shield-check";
 import { Trash2 } from "@/components/animate-ui/icons/trash-2";
@@ -12,6 +14,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -487,23 +495,30 @@ export function UserManagementTable() {
                     </button>
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(user)}
-                        className="text-sm font-medium text-[#1C75BC] hover:underline dark:text-[#6FA8D8]"
-                      >
-                        Edit User
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Delete ${user.name}`}
-                        onClick={() => setDeletingUser(user)}
-                        className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
-                      >
-                        <Trash2 className="h-4 w-4" animateOnHover animateOnTap />
-                      </button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Actions for ${user.name}`}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                        >
+                          <Ellipsis className="h-4 w-4" animateOnHover animateOnTap />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => openEdit(user)}>
+                          <Pencil className="h-4 w-4" />
+                          Edit User
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => setDeletingUser(user)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
