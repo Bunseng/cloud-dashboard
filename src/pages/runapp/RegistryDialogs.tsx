@@ -7,6 +7,7 @@ import { Plus } from "@/components/animate-ui/icons/plus";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -250,12 +251,17 @@ export function AddRegistryDialog({
           ))}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
+          <DialogClose asChild>
+            <Button type="button" variant="outline" className="h-9 text-sm">
+              Cancel
+            </Button>
+          </DialogClose>
           <Button
             variant="brand"
             disabled={!valid}
             onClick={submit}
-            className="h-9 w-full text-sm"
+            className="h-9 text-sm"
           >
             Create
           </Button>

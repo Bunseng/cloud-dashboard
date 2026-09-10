@@ -232,8 +232,9 @@ export function ServicePlanCard({
       {showFooter && (
         <>
           <Separator className="my-4 bg-zinc-200 dark:bg-zinc-800" />
-          <span className="text-[13px] font-medium text-[#1C75BC] dark:text-[#6FA8D8]">
+          <span className="flex items-center gap-1 text-[13px] font-medium text-[#1C75BC] dark:text-[#6FA8D8]">
             {footerLabel || `View ${resourceLabel} List`}
+            <ChevronRight className="h-3.5 w-3.5" animateOnHover animateOnTap />
           </span>
         </>
       )}
@@ -325,6 +326,7 @@ export function MultiSubscriptionView({
   resourceLabel,
   onSelectSubscription,
   onNewSubscription,
+  onUpgrade,
   description,
   footerLabel,
   planName = "Free",
@@ -333,6 +335,7 @@ export function MultiSubscriptionView({
   resourceLabel: string;
   onSelectSubscription?: (index: number) => void;
   onNewSubscription?: () => void;
+  onUpgrade?: (index: number) => void;
   description?: ReactNode;
   footerLabel?: ReactNode;
   planName?: string;
@@ -381,6 +384,7 @@ export function MultiSubscriptionView({
                 ? () => onSelectSubscription(i + 1)
                 : undefined
             }
+            onUpgrade={onUpgrade ? () => onUpgrade(i + 1) : undefined}
           />
         ))}
       </div>

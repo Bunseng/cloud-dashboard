@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+
 import { GROUPS } from "../data/groups";
+import { useFirstUser } from "../firstusersrc/FirstUserContext";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -25,6 +28,7 @@ export function Layout({
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { verifyPromptOpen, dismissVerifyPrompt } = useFirstUser();
 
   const pathname = location.pathname;
   const page = pathname === "/"
@@ -35,6 +39,8 @@ export function Layout({
     ? "planning"
     : pathname.startsWith("/payment") || pathname.startsWith("/topup")
     ? "payment"
+    : pathname.startsWith("/profile")
+    ? "profile"
     : pathname.startsWith("/billing")
     ? "billing"
     : pathname.startsWith("/groups")
@@ -70,6 +76,8 @@ export function Layout({
     breadcrumb = ["Home", "Databases", segs[1]];
   } else if (page === "database") {
     breadcrumb = ["Home", "Databases"];
+  } else if (page === "vps" && segs[2] === "monitoring") {
+    breadcrumb = ["Home", "VPS", segs[1], "Monitoring"];
   } else if (page === "vps" && segs[1]) {
     breadcrumb = ["Home", "VPS", segs[1]];
   } else if (page === "vps") {
@@ -82,6 +90,8 @@ export function Layout({
     breadcrumb = ["Home", "Payment", "Top Up"];
   } else if (page === "payment") {
     breadcrumb = ["Home", "Payment"];
+  } else if (page === "profile") {
+    breadcrumb = ["Home", "Profile"];
   } else if (page === "billing") {
     breadcrumb = ["Home", "Billing Subscription"];
   } else if (page === "groups" && segs[1]) {
@@ -110,6 +120,10 @@ export function Layout({
           dark={dark}
           onToggleTheme={onToggleTheme}
           onToggleSidebar={() => setCollapsed((c) => !c)}
+          onOpenBilling={() => navigate("/billing")}
+          onOpenPayment={() => navigate("/payment")}
+          onOpenProfile={() => navigate("/profile")}
+          onLogOut={() => navigate("/logout")}
         />
 
         <main className="flex-1 overflow-y-auto px-7 py-7">
@@ -123,6 +137,23 @@ export function Layout({
           </div>
         </main>
       </div>
+
+      {/* First User's one-shot "verify before subscribing" popup —
+          rendered once here so every "Subscribe Plan" CTA in the app
+          shares it instead of each page needing its own copy. */}
+      <ConfirmDialog
+        open={verifyPromptOpen}
+        onOpenChange={(open) => {
+          if (!open) dismissVerifyPrompt();
+        }}
+        title="Verify your account first"
+        description="Confirm your phone number and email on your Profile before subscribing to a plan."
+        confirmLabel="Go to Profile"
+        onConfirm={() => {
+          dismissVerifyPrompt();
+          navigate("/profile");
+        }}
+      />
     </div>
   );
 }

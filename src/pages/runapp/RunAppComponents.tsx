@@ -223,11 +223,13 @@ export const SERVICE_COLUMNS: Array<{
 ];
 
 /* Run App's right-hand rail. Mirrors Storage's Usage panel, but carries
-   the subscription — so the stack list needs no Subscriptions tab. */
+   the subscription — so the stack list needs no Subscriptions tab. No
+   "New Subscription" button here — that action lives on the Run App
+   list page one level up, not inside a subscription's own stack list. */
 export function RunAppSubscriptionPanel({
-  onNewSubscription,
+  onUpgrade,
 }: {
-  onNewSubscription?: () => void;
+  onUpgrade?: () => void;
 }) {
   return (
     <div className="w-[320px] shrink-0 space-y-5">
@@ -237,20 +239,12 @@ export function RunAppSubscriptionPanel({
       </div>
       <p className="-mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">02 JUL - 02 AUG</p>
 
-      <ServicePlanCard planName="Basic" stats={RUNAPP_PLAN_STATS} showFooter={false} />
+      <ServicePlanCard planName="Basic" stats={RUNAPP_PLAN_STATS} showFooter={false} onUpgrade={onUpgrade} />
 
       <div className="grid grid-cols-2 gap-4">
         <RadialGauge label="CPU" value={0.5} max={1} unit="CORE" />
         <RadialGauge label="RAM" value={512} max={1024} unit="MB" />
       </div>
-
-      <Button
-        variant="outline"
-        onClick={onNewSubscription}
-        className="h-9 w-full text-sm"
-      >
-        New Subscription
-      </Button>
     </div>
   );
 }
@@ -271,7 +265,7 @@ export function StackListPage({
   subscriptionNumber,
   onBack,
   onViewStack,
-  onNewSubscription,
+  onUpgrade,
   onCreateStack,
   onEditStack,
   createdStack,
@@ -280,7 +274,7 @@ export function StackListPage({
   subscriptionNumber: string;
   onBack: () => void;
   onViewStack: (stackName: string) => void;
-  onNewSubscription?: () => void;
+  onUpgrade?: () => void;
   onCreateStack: () => void;
   // Edit opens the same full-page Create Run App flow a new stack uses
   // (mode="edit"), not a bare rename dialog, so a stack's fields always
@@ -375,7 +369,7 @@ export function StackListPage({
             }}
           />
         </div>
-        <RunAppSubscriptionPanel onNewSubscription={onNewSubscription} />
+        <RunAppSubscriptionPanel onUpgrade={onUpgrade} />
       </div>
     </div>
   );

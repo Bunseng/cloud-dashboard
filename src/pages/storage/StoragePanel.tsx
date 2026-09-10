@@ -1,15 +1,7 @@
 import { useState } from "react";
-import { Ellipsis } from "@/components/animate-ui/icons/ellipsis";
-import { Eye } from "@/components/animate-ui/icons/eye";
 import { Files } from "@/components/animate-ui/icons/files";
 import { Trash2 } from "@/components/animate-ui/icons/trash-2";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -38,7 +30,9 @@ import {
   PILL_TAB_TRIGGER_CLASS,
   RadialGauge,
   RefreshIconButton,
+  RowActionIconButton,
   SearchField,
+  ViewDetailLink,
 } from "../../components/atoms";
 
 /* ------------------------------------------------------------------ *
@@ -55,7 +49,7 @@ export const STORAGE_PLAN_STATS = [
   ["Buckets", "1"],
 ];
 
-export function StorageUsagePanel() {
+export function StorageUsagePanel({ onUpgrade }: { onUpgrade?: () => void }) {
   return (
     <div className="w-[320px] shrink-0 space-y-5">
       <div className="flex items-center justify-between gap-2">
@@ -64,7 +58,7 @@ export function StorageUsagePanel() {
       </div>
       <p className="-mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">02 JUL - 02 AUG</p>
 
-      <ServicePlanCard planName="Free" stats={STORAGE_PLAN_STATS} showFooter={false} />
+      <ServicePlanCard planName="Free" stats={STORAGE_PLAN_STATS} showFooter={false} onUpgrade={onUpgrade} />
 
       <div className="grid grid-cols-2 gap-4">
         <RadialGauge label="Size" value={0} max={1} unit="GB" />
@@ -158,27 +152,17 @@ export function BucketsTable({
                     </span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label={`Actions for ${row.name}`}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-                        >
-                          <Ellipsis className="h-4 w-4" animateOnHover animateOnTap />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => onViewDetail?.(row.name)}>
-                          <Eye className="h-4 w-4" />
-                          View Detail
-                        </DropdownMenuItem>
-                        <DropdownMenuItem variant="destructive" aria-label={`Delete ${row.name}`}>
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {/* Only View Detail + Delete here — 2 actions isn't
+                        enough to earn a dropdown, so both render as
+                        plain controls instead of hiding behind a menu. */}
+                    <div className="flex items-center justify-end gap-3">
+                      <ViewDetailLink onClick={() => onViewDetail?.(row.name)} />
+                      <RowActionIconButton
+                        icon={Trash2}
+                        label={`Delete ${row.name}`}
+                        destructive
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

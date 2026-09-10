@@ -12,6 +12,7 @@ import { ServicePlanCard } from "../../components/PlanCards";
 import {
   BillingDashboardButton,
   ConnectionRow,
+  RadialGauge,
   StatTile,
   StatusBadge,
   UsageBar,
@@ -70,9 +71,11 @@ export const DATABASE_INSTANCE_DETAIL = DATABASE_INSTANCES["DB Instance 1"];
 export function DatabaseInstanceDetailPage({
   instanceName,
   onBack,
+  onUpgrade,
 }: {
   instanceName: string;
   onBack: () => void;
+  onUpgrade?: () => void;
 }) {
   const base = DATABASE_INSTANCES[instanceName] ?? {
     ...DATABASE_INSTANCE_TEMPLATE,
@@ -267,7 +270,18 @@ export function DatabaseInstanceDetailPage({
             <BillingDashboardButton compact />
           </div>
 
-          <ServicePlanCard planName="Standard" stats={DATABASE_PLAN_STATS} showFooter={false} />
+          <ServicePlanCard
+            planName="Standard"
+            stats={DATABASE_PLAN_STATS}
+            showFooter={false}
+            onUpgrade={onUpgrade}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <RadialGauge label="CPU" value={1} max={2} unit="CORE" />
+            <RadialGauge label="RAM" value={2.1} max={4} unit="GB" />
+            <RadialGauge label="Storage" value={18} max={60} unit="GB" />
+          </div>
         </div>
       </div>
 
