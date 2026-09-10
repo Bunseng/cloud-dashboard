@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-
 import { GROUPS } from "../data/groups";
-import { useFirstUser } from "../firstusersrc/FirstUserContext";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -28,7 +25,6 @@ export function Layout({
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { verifyPromptOpen, dismissVerifyPrompt } = useFirstUser();
 
   const pathname = location.pathname;
   const page = pathname === "/"
@@ -137,23 +133,6 @@ export function Layout({
           </div>
         </main>
       </div>
-
-      {/* First User's one-shot "verify before subscribing" popup —
-          rendered once here so every "Subscribe Plan" CTA in the app
-          shares it instead of each page needing its own copy. */}
-      <ConfirmDialog
-        open={verifyPromptOpen}
-        onOpenChange={(open) => {
-          if (!open) dismissVerifyPrompt();
-        }}
-        title="Verify your account first"
-        description="Confirm your phone number and email on your Profile before subscribing to a plan."
-        confirmLabel="Go to Profile"
-        onConfirm={() => {
-          dismissVerifyPrompt();
-          navigate("/profile");
-        }}
-      />
     </div>
   );
 }
