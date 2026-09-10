@@ -65,6 +65,11 @@ export function ServiceDetailPage({
   const status = running
     ? { label: "Running", tone: "green" }
     : { label: "Stopped", tone: "red" };
+  // How other services in the same stack reach this one — the
+  // container-facing side of its port mapping (e.g. "80 → 8080" is
+  // reachable internally at "web:8080"), not the public hostname.
+  const containerPort = row.port.split(" → ")[1] ?? row.port;
+  const serviceNetworkAddress = `${serviceName}:${containerPort}`;
 
   return (
     <div>
@@ -135,34 +140,37 @@ export function ServiceDetailPage({
                 label="Host Name"
                 value={d.hostName}
                 copyable={d.hostName !== "NONE"}
+                tooltip="Your custom domain will point to the Sabay CNAME you've configured. Please wait a moment after creating it for the changes to take effect."
               />
               <ConnectionRow
                 label="Domain Generate"
                 value={d.domainGenerate}
                 copyable={d.domainGenerate !== "NONE"}
               />
-              <ConnectionRow label="Repository" value={d.repository} />
+              <ConnectionRow
+                label="Service Network"
+                value={serviceNetworkAddress}
+                tooltip="Internal Connection. Connect services securely through the private internal network without exposing traffic to the public internet."
+              />
             </div>
           </Card>
 
           {/* Domain & CNAME — only for services actually exposed with a
               domain (an internal-only service, like a cache with no
               public hostname, has neither and skips this card
-              entirely rather than showing empty/"NONE" values). */}
+              entirely rather than showing empty/"NONE" values). Just
+              the CNAME record itself (Type/Value) — the domain name is
+              already shown above in Connection, so it isn't repeated
+              here. */}
           {d.domainGenerate !== "NONE" && (
             <Card>
               <CardTitle>Domain & DNS</CardTitle>
               <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-                This service's public domain, and the CNAME record to point
-                your own domain at it.
+                The CNAME record to point your own domain at this service.
               </p>
-              <div className="mt-4 space-y-2">
-                <ConnectionRow label="Domain Name" value={d.domainGenerate} />
-                <div className="grid grid-cols-3 gap-2">
-                  <ConnectionRow label="Type" value="CNAME" copyable={false} />
-                  <ConnectionRow label="Name" value="www" />
-                  <ConnectionRow label="Value" value={d.domainGenerate} />
-                </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <ConnectionRow label="Type" value="CNAME" copyable={false} />
+                <ConnectionRow label="Value" value={d.domainGenerate} />
               </div>
             </Card>
           )}

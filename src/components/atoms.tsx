@@ -8,6 +8,7 @@ import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
 import { ChevronsLeft } from "@/components/animate-ui/icons/chevrons-left";
 import { ChevronsRight } from "@/components/animate-ui/icons/chevrons-right";
 import { Copy } from "@/components/animate-ui/icons/copy";
+import { Info } from "@/components/animate-ui/icons/info";
 import { Plus } from "@/components/animate-ui/icons/plus";
 import { RefreshCw } from "@/components/animate-ui/icons/refresh-cw";
 import { Search } from "@/components/animate-ui/icons/search";
@@ -15,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /* ------------------------------------------------------------------ *
  * Brand mark — placeholder for the real CLOUD+ logo SVG
@@ -104,6 +106,53 @@ export function BillingDashboardButton({ compact = false }: { compact?: boolean 
         animateOnTap
       />
     </Button>
+  );
+}
+
+/* Row-level action button — a bare icon button matching the ellipsis
+   trigger's own sizing/hover styling, so pulling an action (e.g. "View
+   Detail") out of a dropdown and next to the ellipsis reads as one
+   consistent action cluster rather than two different button styles. */
+export function RowActionIconButton({
+  icon: Icon,
+  label,
+  onClick,
+  destructive = false,
+}: {
+  icon: ComponentType<{ className?: string; animateOnHover?: boolean; animateOnTap?: boolean }>;
+  label: string;
+  onClick?: () => void;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={
+        "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 " +
+        (destructive
+          ? "text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+          : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300")
+      }
+    >
+      <Icon className="h-4 w-4" animateOnHover animateOnTap />
+    </button>
+  );
+}
+
+/* "View Detail" pulled out of a row's action dropdown reads as plain
+   blue underlined text — not another icon button — so it's immediately
+   legible as the row's primary link rather than one more control. */
+export function ViewDetailLink({ onClick }: { onClick?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="whitespace-nowrap text-sm font-medium text-[#1C75BC] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
+    >
+      View Detail
+    </button>
   );
 }
 
@@ -229,20 +278,42 @@ export function StatTile({ label, children }: { label: ReactNode; children?: Rea
   );
 }
 
-/* A copyable connection value. Long strings truncate rather than wrap. */
+/* A copyable connection value. Long strings truncate rather than wrap.
+   `tooltip` adds a small info icon next to the label for a row whose
+   value needs a sentence of context that doesn't fit inline. */
 export function ConnectionRow({
   label,
   value,
   copyable = true,
+  tooltip,
 }: {
   label: string;
   value: string;
   copyable?: boolean;
+  tooltip?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
       <div className="min-w-0">
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
+        <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+          {label}
+          {tooltip && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`About ${label}`}
+                  className="text-zinc-400 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:hover:text-zinc-300"
+                >
+                  <Info className="h-3 w-3" animateOnHover />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[260px] text-[12.5px] leading-snug">
+                {tooltip}
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
         <p className="truncate font-mono text-[13px] text-zinc-900 dark:text-zinc-100">
           {value}
         </p>

@@ -39,6 +39,7 @@ import {
   WALLET_TABS,
   type BillingCategoryKey,
 } from "../data/billing";
+import { useFirstUser } from "../firstusersrc/FirstUserContext";
 
 const STATUS_FILTERS = [
   { key: "all", label: "All Status" },
@@ -142,6 +143,11 @@ function SubscriptionTab() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<BillingCategoryKey>("all");
   const [status, setStatus] = useState<StatusFilterKey>("all");
+  // First User mode previews a brand-new account — no subscriptions to
+  // bill for yet — so the whole tab reads off an empty list instead of
+  // the placeholder BILLING_RECORDS.
+  const { isFirstUser } = useFirstUser();
+  const records = isFirstUser ? [] : BILLING_RECORDS;
 
   const categoryLabel = (key: BillingCategoryKey) =>
     BILLING_CATEGORIES.find((c) => c.key === key)?.label ?? key;
@@ -153,7 +159,7 @@ function SubscriptionTab() {
   const inCategory = (r: (typeof BILLING_RECORDS)[number]) =>
     category === "all" || r.category === category;
 
-  const filtered = BILLING_RECORDS.filter((r) => {
+  const filtered = records.filter((r) => {
     if (!inCategory(r)) return false;
     if (status !== "all" && r.status.label !== status) return false;
     const q = search.trim().toLowerCase();
@@ -170,7 +176,7 @@ function SubscriptionTab() {
   // toward it. Nothing here changes between "this month" and "next
   // month": these are recurring subscriptions, so barring a cancellation
   // the same Active set renews at the same price next cycle too.
-  const activeRows = BILLING_RECORDS.filter(inCategory).filter(
+  const activeRows = records.filter(inCategory).filter(
     (r) => r.status.label === "Active"
   );
   const totalKHR = activeRows
@@ -298,10 +304,12 @@ function SubscriptionTab() {
                       animateOnView
                     />
                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      No matching subscriptions
+                      {isFirstUser ? "No subscriptions yet" : "No matching subscriptions"}
                     </p>
                     <p className="mt-1 max-w-sm text-[13px] leading-snug text-zinc-500 dark:text-zinc-400">
-                      Try a different search term or category.
+                      {isFirstUser
+                        ? "Subscribe to a plan to see it billed here."
+                        : "Try a different search term or category."}
                     </p>
                   </div>
                 </TableCell>
@@ -320,7 +328,8 @@ function SubscriptionTab() {
 
 function InvoiceTab() {
   const [category, setCategory] = useState<BillingCategoryKey>("all");
-  const rows = INVOICE_RECORDS.filter(
+  const { isFirstUser } = useFirstUser();
+  const rows = (isFirstUser ? [] : INVOICE_RECORDS).filter(
     (r) => category === "all" || r.category === category
   );
 

@@ -22,6 +22,7 @@ import {
 import { ClickableSurface } from "../components/atoms";
 import { FEATURES } from "../data/nav";
 import { BILLING_RECORDS, PLACEHOLDER_SUBSCRIPTION_COUNT } from "../data/billing";
+import { useFirstUser } from "../firstusersrc/FirstUserContext";
 
 /* ------------------------------------------------------------------ *
  * Home — the service catalog shown for the "Home" main-nav item. A
@@ -117,15 +118,18 @@ const MEDIA_CONTENT_CARDS: ServiceCardData[] = [
    answers "am I subscribed to this?" without a click. Storage is a
    single subscription (read straight off Billing); Run App/Database/VPS
    allow several side by side, so it's a count instead. */
-function getQuickStat(id: string): { label: string; value: string } {
+function getQuickStat(id: string, isFirstUser: boolean): { label: string; value: string } {
   const feature = FEATURES.find((f) => f.id === id);
   if (feature?.multiSubscription) {
     return {
       label: "Active subscriptions",
-      value: `${PLACEHOLDER_SUBSCRIPTION_COUNT} running`,
+      value: isFirstUser ? "0 running" : `${PLACEHOLDER_SUBSCRIPTION_COUNT} running`,
     };
   }
-  const record = BILLING_RECORDS.find((r) => r.category === id);
+  // First User mode previews a brand-new account, which hasn't
+  // subscribed to anything yet — including Storage's normally-always-on
+  // Free plan — so BILLING_RECORDS is skipped entirely while it's on.
+  const record = isFirstUser ? undefined : BILLING_RECORDS.find((r) => r.category === id);
   if (record) {
     return { label: "Current plan", value: `${record.plan} · ${record.status.label}` };
   }
@@ -136,7 +140,13 @@ function stagger(index: number): CSSProperties {
   return { animationDelay: `${index * 70}ms` };
 }
 
-function HomeHero({ onOpenPlanning }: { onOpenPlanning: () => void }) {
+function HomeHero({
+  onOpenPlanning,
+  isFirstUser,
+}: {
+  onOpenPlanning: () => void;
+  isFirstUser: boolean;
+}) {
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1C75BC] via-[#155f96] to-[#0d3f66] p-7 shadow-lg shadow-[#1C75BC]/20 sm:p-8">
       {/* Decorative floating blobs — purely cosmetic, ignored by a11y tree. */}
@@ -153,13 +163,15 @@ function HomeHero({ onOpenPlanning }: { onOpenPlanning: () => void }) {
         <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-3 motion-safe:duration-500">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white">
             <Sparkles className="h-3.5 w-3.5" animateOnView />
-            Welcome back
+            {isFirstUser ? "Welcome to Cloud+" : "Welcome back"}
           </span>
           <h1 className="mt-3 text-[28px] font-bold leading-[32px] tracking-[-0.6px] text-white sm:text-[30px]">
-            What are we building today?
+            {isFirstUser ? "Let's get your first service running" : "What are we building today?"}
           </h1>
           <p className="mt-2 max-w-md text-sm text-white/75">
-            Jump straight into a service below, or search for something specific.
+            {isFirstUser
+              ? "Pick a service below to subscribe to your first plan."
+              : "Jump straight into a service below, or search for something specific."}
           </p>
         </div>
 
@@ -235,6 +247,7 @@ function ServiceCard({
   description,
   comingSoon,
   onClick,
+  isFirstUser,
 }: {
   index: number;
   span: number;
@@ -253,10 +266,11 @@ function ServiceCard({
   description: string;
   comingSoon?: boolean;
   onClick?: () => void;
+  isFirstUser: boolean;
 }) {
   const Icon = icon;
   const clickable = Boolean(onClick);
-  const quickStat = clickable ? getQuickStat(title.toLowerCase()) : null;
+  const quickStat = clickable ? getQuickStat(title.toLowerCase(), isFirstUser) : null;
 
   const card = (
     <ClickableSurface
@@ -322,12 +336,14 @@ function HomeSection({
   cards,
   startIndex,
   onOpenService,
+  isFirstUser,
 }: {
   title: string;
   description: string;
   cards: ServiceCardData[];
   startIndex: number;
   onOpenService: (id: string) => void;
+  isFirstUser: boolean;
 }) {
   return (
     <section className="mt-10">
@@ -348,6 +364,7 @@ function HomeSection({
             description={card.description}
             comingSoon={card.comingSoon}
             onClick={card.comingSoon ? undefined : () => onOpenService(card.id)}
+            isFirstUser={isFirstUser}
           />
         ))}
       </div>
@@ -362,13 +379,16 @@ export function HomePage({
   onOpenService: (id: string) => void;
   onOpenPlanning: () => void;
 }) {
-  const activeSubscriptions =
-    FEATURES.filter((f) => f.multiSubscription).length * PLACEHOLDER_SUBSCRIPTION_COUNT +
-    BILLING_RECORDS.filter((r) => r.category === "storage" && r.status.label === "Active").length;
+  const { isFirstUser } = useFirstUser();
+
+  const activeSubscriptions = isFirstUser
+    ? 0
+    : FEATURES.filter((f) => f.multiSubscription).length * PLACEHOLDER_SUBSCRIPTION_COUNT +
+      BILLING_RECORDS.filter((r) => r.category === "storage" && r.status.label === "Active").length;
 
   // Neither figure appears anywhere else on Home — Billing is the only
   // other place spend shows up, and this page never lists it.
-  const activeRecords = BILLING_RECORDS.filter((r) => r.status.label === "Active");
+  const activeRecords = isFirstUser ? [] : BILLING_RECORDS.filter((r) => r.status.label === "Active");
   const spendKHR = activeRecords
     .filter((r) => r.currency === "KHR")
     .reduce((sum, r) => sum + r.amount, 0);
@@ -378,7 +398,7 @@ export function HomePage({
 
   return (
     <div>
-      <HomeHero onOpenPlanning={onOpenPlanning} />
+      <HomeHero onOpenPlanning={onOpenPlanning} isFirstUser={isFirstUser} />
 
       <div className="mt-6 grid grid-cols-2 gap-4">
         <QuickStat
@@ -402,6 +422,7 @@ export function HomePage({
         cards={CLOUD_SERVICE_CARDS}
         startIndex={2}
         onOpenService={onOpenService}
+        isFirstUser={isFirstUser}
       />
       <HomeSection
         title="Media & Content"
@@ -409,6 +430,7 @@ export function HomePage({
         cards={MEDIA_CONTENT_CARDS}
         startIndex={2 + CLOUD_SERVICE_CARDS.length}
         onOpenService={onOpenService}
+        isFirstUser={isFirstUser}
       />
     </div>
   );

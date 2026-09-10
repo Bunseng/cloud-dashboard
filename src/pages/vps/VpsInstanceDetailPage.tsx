@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { Gauge } from "@/components/animate-ui/icons/gauge";
+import { Camera } from "@/components/animate-ui/icons/camera";
+import { Key } from "@/components/animate-ui/icons/key";
 import { Pencil } from "@/components/animate-ui/icons/pencil";
 import { Play } from "@/components/animate-ui/icons/play";
-import { Plus } from "@/components/animate-ui/icons/plus";
 import { RotateCw } from "@/components/animate-ui/icons/rotate-cw";
 import { Square } from "@/components/animate-ui/icons/square";
 import { Terminal } from "@/components/animate-ui/icons/terminal";
+import { Trash2 } from "@/components/animate-ui/icons/trash-2";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -14,21 +17,25 @@ import { ServicePlanCard } from "../../components/PlanCards";
 import {
   BillingDashboardButton,
   ConnectionRow,
+  RadialGauge,
   StatTile,
   StatusBadge,
   UsageBar,
 } from "../../components/atoms";
 import { PLACEHOLDER_SUBSCRIPTION_COUNT } from "../../data/billing";
-import { AddRunCommandDialog, EditVpsDialog } from "./VpsDialogs";
+import { AddSshKeyDialog, CreateSnapshotDialog, EditVpsDialog } from "./VpsDialogs";
 
 /* ------------------------------------------------------------------ *
  * VPS instance detail — one full root-access server per subscription,
  * same three-column shape as the Database instance page (Overview,
  * Usage, Connection) plus what's unique to a server: power controls
- * (start/stop/restart) and a Network card instead of a connection
- * string. Resizing CPU/RAM/Storage is a plan change — handled by the
- * Subscribe flow's "Change Plan" step via the Subscription card's
- * "Upgrade Plan" button — not by anything on this page.
+ * (start/stop/restart), Snapshots, SSH Keys, and a Network card
+ * instead of a connection string. Resizing CPU/RAM/Storage is a plan
+ * change — handled by the Subscribe flow's "Change Plan" step via the
+ * Subscription card's "Upgrade Plan" button — not by anything on this
+ * page. The terminal is a real SSH session, so "Open Terminal" opens
+ * one in a new tab rather than faking a shell inline; "Monitoring"
+ * drills into its own page for the live metrics.
  * ------------------------------------------------------------------ */
 
 interface VpsInstance {
@@ -39,6 +46,17 @@ interface VpsInstance {
   region: string;
   resource: { cpu: string; memory: string; storage: string; bandwidth: string };
   network: { publicIp: string; privateIp: string; sshCommand: string };
+}
+
+interface Snapshot {
+  name: string;
+  createdOn: string;
+  size: string;
+}
+
+interface SshKey {
+  name: string;
+  publicKey: string;
 }
 
 function makeTemplate(index: number): Omit<VpsInstance, "name"> {
@@ -66,23 +84,53 @@ export const VPS_INSTANCES: Record<string, VpsInstance> = Object.fromEntries(
   })
 );
 
+const SAMPLE_KEY_FINGERPRINT =
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGx3z2s9c1r3f0a1v2b3n4m5q6w7e8r9t0y1u2i3o4p";
+
 export function VpsInstanceDetailPage({
   instanceName,
   onBack,
   onUpgrade,
+  onMonitoring,
+  overrides,
 }: {
   instanceName: string;
   onBack: () => void;
   onUpgrade?: () => void;
+  onMonitoring?: () => void;
+  // Freshly provisioned via CreateVpsPage — its hostname/OS/region win
+  // over the sample template so the just-filled-in form actually shows
+  // up on the instance it created.
+  overrides?: { hostname?: string; os?: string; region?: string };
 }) {
-  const base = VPS_INSTANCES[instanceName] ?? { ...makeTemplate(1), name: instanceName };
+  const base = {
+    ...(VPS_INSTANCES[instanceName] ?? { ...makeTemplate(1), name: instanceName }),
+    ...(overrides?.hostname ? { hostname: overrides.hostname } : {}),
+    ...(overrides?.os ? { os: overrides.os } : {}),
+    ...(overrides?.region ? { region: overrides.region } : {}),
+  };
   const [d, setD] = useState(base);
   const [running, setRunning] = useState(d.status.label === "Running");
   const [editOpen, setEditOpen] = useState(false);
   const [destroyOpen, setDestroyOpen] = useState(false);
-  const [addCommandOpen, setAddCommandOpen] = useState(false);
-  const [commands, setCommands] = useState<string[]>([]);
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [addKeyOpen, setAddKeyOpen] = useState(false);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [sshKeys, setSshKeys] = useState<SshKey[]>([
+    { name: "admin-laptop", publicKey: SAMPLE_KEY_FINGERPRINT },
+  ]);
   const status = running ? { label: "Running", tone: "green" } : { label: "Stopped", tone: "red" };
+
+  function openTerminal() {
+    // Mock web console — a real backend would issue a short-lived session
+    // URL for this instance; here it's just the instance's own address so
+    // "Open Terminal" still opens something instance-specific in a new tab.
+    window.open(
+      `https://console.cloudplus.test/vps/${encodeURIComponent(instanceName)}/terminal`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
 
   return (
     <div>
@@ -102,14 +150,33 @@ export function VpsInstanceDetailPage({
           </h1>
           <StatusBadge label={status.label} tone={status.tone} />
         </div>
-        <Button
-          variant="brand"
-          onClick={() => setEditOpen(true)}
-          className="h-9 shrink-0 gap-1.5 px-8 text-sm"
-        >
-          <Pencil className="h-3.5 w-3.5" animateOnHover animateOnTap />
-          Edit
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="outline"
+            disabled={running}
+            onClick={() => setRunning(true)}
+            className="h-9 gap-1.5 text-sm"
+          >
+            <Play className="h-3.5 w-3.5" animateOnHover animateOnTap />
+            Start
+          </Button>
+          <Button variant="outline" onClick={onMonitoring} className="h-9 gap-1.5 text-sm">
+            <Gauge className="h-3.5 w-3.5" animateOnHover animateOnTap />
+            Monitoring
+          </Button>
+          <Button variant="outline" onClick={openTerminal} className="h-9 gap-1.5 text-sm">
+            <Terminal className="h-3.5 w-3.5" animateOnHover animateOnTap />
+            Open Terminal
+          </Button>
+          <Button
+            variant="brand"
+            onClick={() => setEditOpen(true)}
+            className="h-9 gap-1.5 px-8 text-sm"
+          >
+            <Pencil className="h-3.5 w-3.5" animateOnHover animateOnTap />
+            Edit
+          </Button>
+        </div>
       </div>
 
       <div className="mt-5 flex items-start gap-6">
@@ -152,36 +219,114 @@ export function VpsInstanceDetailPage({
             </div>
           </Card>
 
-          {/* Run commands — quick-start snippets, sample OS-matched
-              command supplied by AddRunCommandDialog. */}
+          {/* SSH Key management — keys authorized for root login; adding
+              one here is a sample of what a real backend would push into
+              ~/.ssh/authorized_keys on next boot. */}
           <Card>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <CardTitle>Run Commands</CardTitle>
+                <CardTitle>SSH Keys</CardTitle>
                 <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-                  Sample terminal commands for {d.os}, ready to run over SSH.
+                  Public keys authorized for root login on this server.
                 </p>
               </div>
               <Button
                 variant="outline"
-                onClick={() => setAddCommandOpen(true)}
+                onClick={() => setAddKeyOpen(true)}
                 className="h-9 shrink-0 gap-1.5 text-sm"
               >
-                <Plus className="h-4 w-4" animateOnHover animateOnTap />
-                Add
+                <Key className="h-4 w-4" animateOnHover animateOnTap />
+                Add Key
               </Button>
             </div>
-            {commands.length > 0 ? (
+            {sshKeys.length > 0 ? (
               <div className="mt-4 space-y-2">
-                {commands.map((cmd, i) => (
-                  <ConnectionRow key={`${cmd}-${i}`} label={`Command ${i + 1}`} value={cmd} />
+                {sshKeys.map((key, i) => (
+                  <div
+                    key={`${key.name}-${i}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-800"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {key.name}
+                      </p>
+                      <p className="truncate font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {key.publicKey}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove ${key.name}`}
+                      onClick={() => setSshKeys((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="h-8 w-8 shrink-0 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" animateOnHover animateOnTap />
+                    </Button>
+                  </div>
                 ))}
               </div>
             ) : (
               <div className="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-zinc-200 px-3 py-4 dark:border-zinc-800">
-                <Terminal className="h-4 w-4 shrink-0 text-zinc-400" animateOnView />
+                <Key className="h-4 w-4 shrink-0 text-zinc-400" animateOnView />
                 <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
-                  No commands added yet — click Add for an OS-matched sample.
+                  No SSH keys added yet — password login only until you add one.
+                </p>
+              </div>
+            )}
+          </Card>
+
+          {/* Snapshots — full-disk image, created on demand; restoring a
+              new VPS from one isn't wired here, just the capture step. */}
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle>Snapshots</CardTitle>
+                <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
+                  Full-disk images of this server, ready to restore from later.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setSnapshotOpen(true)}
+                className="h-9 shrink-0 gap-1.5 text-sm"
+              >
+                <Camera className="h-4 w-4" animateOnHover animateOnTap />
+                Create Snapshot
+              </Button>
+            </div>
+            {snapshots.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                {snapshots.map((snap, i) => (
+                  <div
+                    key={`${snap.name}-${i}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-800"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {snap.name}
+                      </p>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {snap.createdOn} · {snap.size}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove ${snap.name}`}
+                      onClick={() => setSnapshots((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="h-8 w-8 shrink-0 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" animateOnHover animateOnTap />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-zinc-200 px-3 py-4 dark:border-zinc-800">
+                <Camera className="h-4 w-4 shrink-0 text-zinc-400" animateOnView />
+                <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
+                  No snapshots yet — create one to capture this server's current state.
                 </p>
               </div>
             )}
@@ -259,6 +404,12 @@ export function VpsInstanceDetailPage({
             showFooter={false}
             onUpgrade={onUpgrade}
           />
+
+          <div className="grid grid-cols-2 gap-4">
+            <RadialGauge label="vCPU" value={0.8} max={2} unit="CORE" />
+            <RadialGauge label="RAM" value={1.8} max={4} unit="GB" />
+            <RadialGauge label="Storage" value={24} max={80} unit="GB" />
+          </div>
         </div>
       </div>
 
@@ -272,11 +423,30 @@ export function VpsInstanceDetailPage({
         }
       />
 
-      <AddRunCommandDialog
-        open={addCommandOpen}
-        onOpenChange={setAddCommandOpen}
-        os={d.os}
-        onAdd={(command) => setCommands((prev) => [...prev, command])}
+      <CreateSnapshotDialog
+        open={snapshotOpen}
+        onOpenChange={setSnapshotOpen}
+        instanceName={instanceName}
+        onCreate={(name) =>
+          setSnapshots((prev) => [
+            {
+              name,
+              createdOn: new Date().toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              }),
+              size: `${d.resource.storage}`,
+            },
+            ...prev,
+          ])
+        }
+      />
+
+      <AddSshKeyDialog
+        open={addKeyOpen}
+        onOpenChange={setAddKeyOpen}
+        onAdd={(key) => setSshKeys((prev) => [...prev, key])}
       />
 
       <ConfirmDialog

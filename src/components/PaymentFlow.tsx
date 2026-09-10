@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { Building2 } from "@/components/animate-ui/icons/building-2";
 import { CreditCard } from "@/components/animate-ui/icons/credit-card";
+import { Gem } from "@/components/animate-ui/icons/gem";
 import { LoaderCircle as Loader2 } from "@/components/animate-ui/icons/loader-circle";
 import { Plus } from "@/components/animate-ui/icons/plus";
 import { QrCode } from "@/components/animate-ui/icons/qr-code";
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/select";
 
 import { PaymentCardVisual } from "./PaymentCard";
+import { ACCOUNT_BALANCE } from "../data/nav";
 import type { CardBrand, SavedCard } from "../data/paymentMethods";
 
 /* ------------------------------------------------------------------ *
@@ -61,10 +63,16 @@ export const SCAN_METHODS = [
 
 export type ScanMethodId = (typeof SCAN_METHODS)[number]["id"];
 
+/* "Pay with Business Gold" — only offered where `allowBG` is set (every
+   Subscribe/Upgrade payment, not Top Up: BG is earned, not purchased,
+   so it can't be the thing you're topping up). One flat id since,
+   unlike scan methods or cards, there's only ever one BG balance. */
+export const BG_METHOD_ID = "bg" as const;
+
 /* The value a RadioGroup carries for "what's selected" — a scan
-   method's id as-is, or a saved card prefixed "card:" so the two
-   families can share one RadioGroup (exactly one method total,
-   whichever family it's from) without colliding on id. */
+   method's id as-is, the fixed BG_METHOD_ID, or a saved card prefixed
+   "card:" so all three families can share one RadioGroup (exactly one
+   method total, whichever family it's from) without colliding on id. */
 export type PaymentSelection = string;
 
 export function cardSelectionId(cardId: string): PaymentSelection {
@@ -74,6 +82,7 @@ export function cardSelectionId(cardId: string): PaymentSelection {
 export type ResolvedPayment =
   | { kind: "scan"; method: (typeof SCAN_METHODS)[number] }
   | { kind: "card"; card: SavedCard }
+  | { kind: "bg" }
   | null;
 
 /* Turns the picker's raw string selection into something PayDialog
@@ -84,6 +93,7 @@ export function resolvePaymentSelection(
   cards: SavedCard[]
 ): ResolvedPayment {
   if (!selection) return null;
+  if (selection === BG_METHOD_ID) return { kind: "bg" };
   if (selection.startsWith("card:")) {
     const card = cards.find((c) => cardSelectionId(c.id) === selection);
     return card ? { kind: "card", card } : null;
@@ -138,6 +148,11 @@ export function PaymentMethodPicker({
   onPay,
   onAddCard,
   payDisabled = false,
+  // Only Subscribe/Upgrade pass this — Business Gold is earned, not
+  // purchased, so it's never an option for Top Up (the flow that adds
+  // KHR balance in the first place).
+  allowBG = false,
+  amount,
 }: {
   summary: ReactNode;
   payLabel: string;
@@ -147,7 +162,14 @@ export function PaymentMethodPicker({
   onPay: () => void;
   onAddCard?: () => void;
   payDisabled?: boolean;
+  allowBG?: boolean;
+  // What's being paid for, in KHR — only used to tell whether the BG
+  // balance actually covers it.
+  amount?: number;
 }) {
+  const bgBalance = ACCOUNT_BALANCE.bg;
+  const bgInsufficient = allowBG && amount != null && bgBalance < amount;
+
   return (
     <div className="mx-auto max-w-[440px]">
       {summary}
@@ -187,6 +209,51 @@ export function PaymentMethodPicker({
             </Label>
           );
         })}
+
+        {allowBG && (
+          <>
+            <div className="flex items-center gap-3 py-1">
+              <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+              <span className="text-[11px] font-semibold tracking-wide text-zinc-400 dark:text-zinc-500">
+                OR PAY WITH BUSINESS GOLD
+              </span>
+              <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+            </div>
+
+            <Label
+              htmlFor="method-bg"
+              className={
+                "flex w-full items-center gap-3 rounded-xl border p-3.5 text-left font-normal motion-safe:transition-colors " +
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 " +
+                (bgInsufficient
+                  ? "cursor-not-allowed border-zinc-200 opacity-50 dark:border-zinc-800"
+                  : "cursor-pointer " +
+                    (selected === BG_METHOD_ID
+                      ? "border-[#1C75BC] bg-[#EFF6FF] dark:bg-zinc-900"
+                      : "border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"))
+              }
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FF] dark:bg-zinc-800">
+                <Gem className="h-5 w-5 text-[#1C75BC] dark:text-[#6FA8D8]" animateOnView />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  Business Gold
+                </p>
+                <p className="mt-0.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
+                  {bgInsufficient
+                    ? "Not enough BG balance for this payment."
+                    : "Your bonus balance — no scan needed."}
+                </p>
+              </div>
+              <p className="shrink-0 whitespace-nowrap text-sm font-bold text-zinc-900 dark:text-zinc-50">
+                {bgBalance.toLocaleString()}{" "}
+                <span className="text-[12px] font-medium text-zinc-500 dark:text-zinc-400">BG</span>
+              </p>
+              <RadioGroupItem value={BG_METHOD_ID} id="method-bg" disabled={bgInsufficient} />
+            </Label>
+          </>
+        )}
 
         <div className="flex items-center gap-3 py-1">
           <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
@@ -270,6 +337,10 @@ export function PayDialog({
   const [state, setState] = useState<PayState>("confirm");
   const [secondsLeft, setSecondsLeft] = useState(180);
   const isCard = selection?.kind === "card";
+  // BG deducts from a balance that's already sitting on the account —
+  // nothing to scan or charge externally — so it resolves just as fast
+  // as a saved card.
+  const isInstant = isCard || selection?.kind === "bg";
 
   useEffect(() => {
     if (!open) {
@@ -277,10 +348,11 @@ export function PayDialog({
       setSecondsLeft(180);
       return;
     }
-    // Scanning takes a beat to "notice" the payment; a saved card has
-    // nothing to scan, so it moves to confirming almost immediately.
-    const confirmDelay = isCard ? 1200 : 3000;
-    const doneDelay = isCard ? 2800 : 5000;
+    // Scanning takes a beat to "notice" the payment; a saved card or BG
+    // balance has nothing to scan, so it moves to confirming almost
+    // immediately.
+    const confirmDelay = isInstant ? 1200 : 3000;
+    const doneDelay = isInstant ? 2800 : 5000;
     const toLoading = setTimeout(() => setState("loading"), confirmDelay);
     const toDone = setTimeout(() => {
       setState("done");
@@ -315,6 +387,25 @@ export function PayDialog({
                 <PaymentCardVisual card={selection.card} />
                 <p className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
                   {amount.toLocaleString()} KHR
+                </p>
+              </div>
+            </>
+          ) : selection?.kind === "bg" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Confirm Business Gold Payment</DialogTitle>
+                <DialogDescription>
+                  Deducting from your Business Gold bonus balance.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#EFF6FF] dark:bg-zinc-900">
+                  <Gem className="h-8 w-8 text-[#1C75BC] dark:text-[#6FA8D8]" animate loop />
+                </div>
+                <p className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+                  {amount.toLocaleString()}{" "}
+                  <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">BG</span>
                 </p>
               </div>
             </>

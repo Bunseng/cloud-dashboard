@@ -33,7 +33,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { PAGINATION_CONTROLS, RefreshIconButton, SearchField } from "./atoms";
+import {
+  PAGINATION_CONTROLS,
+  RefreshIconButton,
+  RowActionIconButton,
+  SearchField,
+  ViewDetailLink,
+} from "./atoms";
 
 type ResourceRow = { id: string | number; name: string; [key: string]: any };
 
@@ -102,6 +108,102 @@ export function ResourceListView({
     );
   }
 
+  // Action-cluster rendering rule: a bare "View Detail" + "Delete" pair
+  // (2 actions total) doesn't earn a dropdown at all — both render as
+  // plain icon buttons. Once a row has more than 3 actions, "View
+  // Detail" is pulled out next to the ellipsis so the most common click
+  // doesn't require opening a menu first; the rest stay in the
+  // dropdown. Exactly 3 stays as a single dropdown — not enough to
+  // bother splitting.
+  function renderRowActions(row: ResourceRow) {
+    const editAction: ResourceRowAction | null = onEdit
+      ? { key: "edit", label: "Edit", icon: Pencil, onSelect: () => onEdit(row) }
+      : null;
+    const extras = extraActions ? extraActions(row) : [];
+    const deleteAction: ResourceRowAction = {
+      key: "delete",
+      label: "Delete",
+      icon: Trash2,
+      onSelect: () => setDeleteTarget(row),
+    };
+    const otherActions = [...(editAction ? [editAction] : []), ...extras, deleteAction];
+
+    const totalActions = 1 + otherActions.length;
+
+    if (totalActions <= 2) {
+      return (
+        <div className="flex items-center justify-end gap-3">
+          <ViewDetailLink onClick={() => onViewDetail?.(row.name)} />
+          {otherActions.map((action) => (
+            <RowActionIconButton
+              key={action.key}
+              icon={action.icon}
+              label={`${action.label} ${row.name}`}
+              onClick={action.onSelect}
+              destructive={action.key === "delete"}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    const menu = (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Actions for ${row.name}`}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          >
+            <Ellipsis className="h-4 w-4" animateOnHover animateOnTap />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {totalActions <= 3 && (
+            <>
+              <DropdownMenuItem onSelect={() => onViewDetail?.(row.name)}>
+                <Eye className="h-4 w-4" />
+                View Detail
+              </DropdownMenuItem>
+              {otherActions.length > 0 && <DropdownMenuSeparator />}
+            </>
+          )}
+          {editAction && (
+            <DropdownMenuItem onSelect={editAction.onSelect}>
+              <editAction.icon className="h-4 w-4" />
+              {editAction.label}
+            </DropdownMenuItem>
+          )}
+          {extras.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              {extras.map((action) => (
+                <DropdownMenuItem key={action.key} disabled={action.disabled} onSelect={action.onSelect}>
+                  <action.icon className="h-4 w-4" />
+                  {action.label}
+                </DropdownMenuItem>
+              ))}
+            </>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={deleteAction.onSelect}>
+            <deleteAction.icon className="h-4 w-4" />
+            {deleteAction.label}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+
+    if (totalActions <= 3) return menu;
+
+    return (
+      <div className="flex items-center justify-end gap-3">
+        <ViewDetailLink onClick={() => onViewDetail?.(row.name)} />
+        {menu}
+      </div>
+    );
+  }
+
   return (
     <div className="mt-4">
       <div className="flex items-center gap-2">
@@ -166,52 +268,7 @@ export function ResourceListView({
                     </TableCell>
                   ))}
                   <TableCell className="whitespace-nowrap text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label={`Actions for ${row.name}`}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-                        >
-                          <Ellipsis className="h-4 w-4" animateOnHover animateOnTap />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => onViewDetail?.(row.name)}>
-                          <Eye className="h-4 w-4" />
-                          View Detail
-                        </DropdownMenuItem>
-                        {onEdit && (
-                          <DropdownMenuItem onSelect={() => onEdit(row)}>
-                            <Pencil className="h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                        )}
-                        {extraActions && extraActions(row).length > 0 && (
-                          <>
-                            <DropdownMenuSeparator />
-                            {extraActions(row).map((action) => (
-                              <DropdownMenuItem
-                                key={action.key}
-                                disabled={action.disabled}
-                                onSelect={action.onSelect}
-                              >
-                                <action.icon className="h-4 w-4" />
-                                {action.label}
-                              </DropdownMenuItem>
-                            ))}
-                          </>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onSelect={() => setDeleteTarget(row)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {renderRowActions(row)}
                   </TableCell>
                 </TableRow>
               ))

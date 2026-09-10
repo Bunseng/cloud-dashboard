@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 
-import { Copy } from "@/components/animate-ui/icons/copy";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -133,71 +132,51 @@ export function EditVpsDialog({
 }
 
 /* ------------------------------------------------------------------ *
- * Run Command — quick-start terminal snippets. Sample text is picked
- * by OS family (Debian/Ubuntu apt, RHEL-family dnf, Windows PowerShell)
- * so switching OS in Edit VPS still gets you a command that actually
- * matches what's installed.
+ * Create Snapshot — names the snapshot (defaulting to a timestamp-ish
+ * placeholder); the resulting size/date are made up by the caller
+ * since there's no real disk to image here.
  * ------------------------------------------------------------------ */
 
-export function getSampleRunCommand(os: string): string {
-  if (os.startsWith("Windows")) {
-    return "Install-WindowsUpdate -AcceptAll -AutoReboot";
-  }
-  if (os.startsWith("AlmaLinux") || os.startsWith("CentOS") || os.startsWith("Rocky")) {
-    return "sudo dnf update -y && sudo dnf upgrade -y";
-  }
-  return "sudo apt update && sudo apt upgrade -y";
-}
-
-export function AddRunCommandDialog({
+export function CreateSnapshotDialog({
   open,
   onOpenChange,
-  os,
-  onAdd,
+  instanceName,
+  onCreate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  os: string;
-  onAdd: (command: string) => void;
+  instanceName: string;
+  onCreate: (name: string) => void;
 }) {
-  const sample = getSampleRunCommand(os);
-  const [command, setCommand] = useState(sample);
+  const defaultName = `${instanceName}-snapshot`;
+  const [name, setName] = useState(defaultName);
 
   useEffect(() => {
-    if (open) setCommand(getSampleRunCommand(os));
-  }, [open, os]);
+    if (open) setName(defaultName);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[480px]">
+      <DialogContent className="max-w-[440px]">
         <DialogHeader>
-          <DialogTitle>Add Run Command</DialogTitle>
+          <DialogTitle>Create Snapshot</DialogTitle>
           <DialogDescription>
-            A sample command for {os}, ready to copy onto this server over SSH. Edit it before
-            adding if you need something different.
+            Captures a full image of this server's disk right now. You can restore a new VPS from
+            it later.
           </DialogDescription>
         </DialogHeader>
 
         <div>
-          <div className="flex items-center justify-between gap-2">
-            <Label htmlFor="run-command-input" className="text-zinc-900 dark:text-zinc-100">
-              Command
-            </Label>
-            <button
-              type="button"
-              onClick={() => navigator.clipboard?.writeText(command)}
-              className="flex items-center gap-1 text-xs font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
-            >
-              <Copy className="h-3.5 w-3.5" animateOnHover animateOnTap />
-              Copy
-            </button>
-          </div>
-          <Textarea
-            id="run-command-input"
-            value={command}
-            onChange={(e) => setCommand(e.target.value)}
-            rows={3}
-            className="mt-2 font-mono text-[13px]"
+          <Label htmlFor="snapshot-name" className="text-zinc-900 dark:text-zinc-100">
+            Snapshot Name
+          </Label>
+          <Input
+            id="snapshot-name"
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="mt-2"
           />
         </div>
 
@@ -209,14 +188,108 @@ export function AddRunCommandDialog({
           </DialogClose>
           <Button
             variant="brand"
-            disabled={!command.trim()}
+            disabled={!name.trim()}
             onClick={() => {
-              onAdd(command.trim());
+              onCreate(name.trim());
               onOpenChange(false);
             }}
             className="h-9 text-sm"
           >
-            Add Command
+            Create Snapshot
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * SSH Key Management — paste a public key (name + the key text) to
+ * authorize it for root login on this server.
+ * ------------------------------------------------------------------ */
+
+export function AddSshKeyDialog({
+  open,
+  onOpenChange,
+  onAdd,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAdd: (key: { name: string; publicKey: string }) => void;
+}) {
+  const [name, setName] = useState("");
+  const [publicKey, setPublicKey] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setPublicKey("");
+    }
+  }, [open]);
+
+  const valid = name.trim().length > 0 && publicKey.trim().startsWith("ssh-");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Add SSH Key</DialogTitle>
+          <DialogDescription>
+            Paste a public key to authorize it for root login on this server — never share the
+            matching private key.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="ssh-key-name" className="text-zinc-900 dark:text-zinc-100">
+              Key Name
+            </Label>
+            <Input
+              id="ssh-key-name"
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="my-laptop"
+              className="mt-2"
+            />
+          </div>
+          <div>
+            <Label htmlFor="ssh-key-value" className="text-zinc-900 dark:text-zinc-100">
+              Public Key
+            </Label>
+            <Textarea
+              id="ssh-key-value"
+              value={publicKey}
+              onChange={(e) => setPublicKey(e.target.value)}
+              placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... you@laptop"
+              rows={4}
+              className="mt-2 font-mono text-[12.5px]"
+            />
+            {publicKey.trim().length > 0 && !publicKey.trim().startsWith("ssh-") && (
+              <p className="mt-1.5 text-xs text-red-500">
+                Public keys start with "ssh-" (e.g. ssh-ed25519, ssh-rsa).
+              </p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <DialogClose asChild>
+            <Button variant="outline" className="h-9 text-sm">
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button
+            variant="brand"
+            disabled={!valid}
+            onClick={() => {
+              onAdd({ name: name.trim(), publicKey: publicKey.trim() });
+              onOpenChange(false);
+            }}
+            className="h-9 text-sm"
+          >
+            Add Key
           </Button>
         </DialogFooter>
       </DialogContent>

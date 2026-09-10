@@ -6,14 +6,22 @@ import {
   useLocation,
   useNavigate,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
+import { Box } from "@/components/animate-ui/icons/box";
+import { Database } from "@/components/animate-ui/icons/database";
+import { Layers } from "@/components/animate-ui/icons/layers";
 import { Plus } from "@/components/animate-ui/icons/plus";
+import { Server } from "@/components/animate-ui/icons/server";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Layout } from "../components/Layout";
 import { PILL_TABS_LIST_CLASS, PILL_TAB_TRIGGER_CLASS } from "../components/atoms";
 import { MultiSubscriptionView, SubscriptionPlanView } from "../components/PlanCards";
+import { EmptyState } from "../firstusersrc/EmptyState";
+import { useFirstUser } from "../firstusersrc/FirstUserContext";
+import { useSubscribeNavigate } from "../firstusersrc/useSubscribeNavigate";
 import { FEATURES } from "../data/nav";
 import { PLACEHOLDER_SUBSCRIPTION_COUNT, WALLET_TABS } from "../data/billing";
 
@@ -21,6 +29,7 @@ import { HomePage } from "../pages/HomePage";
 import { PlanningPage } from "../pages/PlanningPage";
 import { BillingPage } from "../pages/BillingPage";
 import { PaymentPage } from "../pages/PaymentPage";
+import { ProfilePage } from "../pages/ProfilePage";
 import { TopUpPage } from "../pages/TopUpPage";
 import { SubscribePage } from "../pages/SubscribePage";
 import { LogOutPage } from "../pages/LogOutPage";
@@ -48,9 +57,18 @@ import {
 } from "../pages/database/DatabaseInstanceDetailPage";
 
 import {
+  VPS_INSTANCES,
   VPS_SUBSCRIPTION_STATS,
   VpsInstanceDetailPage,
 } from "../pages/vps/VpsInstanceDetailPage";
+import { VpsMonitoringPage } from "../pages/vps/VpsMonitoringPage";
+import { CreateVpsPage, VPS_PROVISIONED, type VpsCreateResult } from "../pages/vps/CreateVpsPage";
+
+/* Subscription 3 is the one VPS subscription whose server hasn't been
+   provisioned yet — visiting it shows CreateVpsPage (same idea as Run
+   App's empty Stack List prompting "Create Stack") instead of a
+   ready-made instance, until you actually create one. */
+const UNPROVISIONED_VPS_INSTANCE = "VPS Instance 3";
 
 import { GroupsListPage } from "../pages/groups/GroupsListPage";
 import { GroupDetailPage } from "../pages/groups/GroupDetailPage";
@@ -83,6 +101,8 @@ function DashboardRoute() {
   const { tab } = useParams<{ tab: string }>();
   const navigate = useNavigate();
   const dashboardTab = FEATURES.some((f) => f.id === tab) ? tab : FEATURES[0].id;
+  const { isFirstUser } = useFirstUser();
+  const subscribeNavigate = useSubscribeNavigate();
 
   return (
     <>
@@ -101,7 +121,19 @@ function DashboardRoute() {
 
         {FEATURES.map((f) => (
           <TabsContent key={f.id} value={f.id} className="mt-6">
-            {f.multiSubscription ? (
+            {isFirstUser ? (
+              <EmptyState
+                icon={f.icon}
+                title={`No ${f.navLabel} subscriptions yet`}
+                description={`Subscribe to a ${f.resourceLabel} plan to get started with ${f.navLabel}.`}
+                actionLabel="Subscribe Plan"
+                onAction={() =>
+                  subscribeNavigate(
+                    `/subscribe/${f.id}/${f.id === "database" || f.id === "vps" ? "standard" : f.id === "storage" ? "free" : "basic"}`
+                  )
+                }
+              />
+            ) : f.multiSubscription ? (
               <MultiSubscriptionView
                 resourceLabel={f.resourceLabel}
                 planName={f.id === "database" || f.id === "vps" ? "Standard" : "Basic"}
@@ -126,6 +158,10 @@ function DashboardRoute() {
                   }
                 }}
                 onNewSubscription={() => navigate("/planning")}
+                onUpgrade={() => {
+                  const currentTierId = f.id === "database" || f.id === "vps" ? "standard" : "basic";
+                  navigate(`/subscribe/${f.id}/${currentTierId}?upgrade=1`);
+                }}
               />
             ) : (
               <SubscriptionPlanView
@@ -159,6 +195,10 @@ function PaymentRoute() {
   );
 }
 
+function ProfileRoute() {
+  return <ProfilePage />;
+}
+
 function TopUpRoute() {
   const navigate = useNavigate();
   return <TopUpPage onDone={() => navigate("/payment")} />;
@@ -166,6 +206,7 @@ function TopUpRoute() {
 
 function SubscribeRoute() {
   const { category, tierId } = useParams<{ category: string; tierId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const cat =
     PRICING_CATEGORIES.find((c) => c.key === category) ?? PRICING_CATEGORIES[0];
@@ -176,6 +217,7 @@ function SubscribeRoute() {
       categoryLabel={cat.label}
       icon={cat.icon}
       initialTierId={tierId ?? ""}
+      mode={searchParams.get("upgrade") ? "upgrade" : "new"}
       onDone={() =>
         navigate(FEATURES.some((f) => f.id === cat.key) ? `/dashboard/${cat.key}` : "/planning")
       }
@@ -190,6 +232,8 @@ function SubscribeRoute() {
 function StorageRoute() {
   const navigate = useNavigate();
   const [createBucketOpen, setCreateBucketOpen] = useState(false);
+  const { isFirstUser } = useFirstUser();
+  const subscribeNavigate = useSubscribeNavigate();
 
   return (
     <>
@@ -197,23 +241,37 @@ function StorageRoute() {
         <h1 className="text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
           Storage
         </h1>
-        <Button
-          variant="brand"
-          onClick={() => setCreateBucketOpen(true)}
-          className="h-9 shrink-0 px-4 text-sm"
-        >
-          <Plus className="mr-1.5 h-4 w-4" strokeWidth={2.5} animateOnHover animateOnTap />
-          Create Bucket
-        </Button>
+        {!isFirstUser && (
+          <Button
+            variant="brand"
+            onClick={() => setCreateBucketOpen(true)}
+            className="h-9 shrink-0 px-4 text-sm"
+          >
+            <Plus className="mr-1.5 h-4 w-4" strokeWidth={2.5} animateOnHover animateOnTap />
+            Create Bucket
+          </Button>
+        )}
       </div>
 
-      <div className="mt-7 flex items-start gap-6">
-        <div className="min-w-0 flex-1">
-          <StoragePanel
-            onViewBucket={(name: string) => navigate(`/storage/${encodeURIComponent(name)}`)}
+      <div className="mt-7">
+        {isFirstUser ? (
+          <EmptyState
+            icon={Box}
+            title="No Storage subscriptions yet"
+            description="Subscribe to a Storage plan to create your first bucket."
+            actionLabel="Subscribe Plan"
+            onAction={() => subscribeNavigate("/subscribe/storage/free")}
           />
-        </div>
-        <StorageUsagePanel />
+        ) : (
+          <div className="flex items-start gap-6">
+            <div className="min-w-0 flex-1">
+              <StoragePanel
+                onViewBucket={(name: string) => navigate(`/storage/${encodeURIComponent(name)}`)}
+              />
+            </div>
+            <StorageUsagePanel onUpgrade={() => navigate("/subscribe/storage/free?upgrade=1")} />
+          </div>
+        )}
       </div>
 
       <CreateBucketDialog open={createBucketOpen} onOpenChange={setCreateBucketOpen} />
@@ -234,21 +292,34 @@ function BucketDetailRoute() {
 
 function RunAppRoute() {
   const navigate = useNavigate();
+  const { isFirstUser } = useFirstUser();
+  const subscribeNavigate = useSubscribeNavigate();
   return (
     <>
       <h1 className="text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
         Run App
       </h1>
       <div className="mt-7">
-        <MultiSubscriptionView
-          resourceLabel="Stack"
-          description={`${PLACEHOLDER_SUBSCRIPTION_COUNT} active — each stack can carry its own plan.`}
-          footerLabel="View Stack List"
-          planName="Basic"
-          stats={RUNAPP_PLAN_STATS}
-          onSelectSubscription={(n: number) => navigate(`/runapp/${n}`)}
-          onNewSubscription={() => navigate("/planning")}
-        />
+        {isFirstUser ? (
+          <EmptyState
+            icon={Layers}
+            title="No Run App subscriptions yet"
+            description="Subscribe to a Stack plan to deploy your first app."
+            actionLabel="Subscribe Plan"
+            onAction={() => subscribeNavigate("/subscribe/runapp/basic")}
+          />
+        ) : (
+          <MultiSubscriptionView
+            resourceLabel="Stack"
+            description={`${PLACEHOLDER_SUBSCRIPTION_COUNT} active — each stack can carry its own plan.`}
+            footerLabel="View Stack List"
+            planName="Basic"
+            stats={RUNAPP_PLAN_STATS}
+            onSelectSubscription={(n: number) => navigate(`/runapp/${n}`)}
+            onNewSubscription={() => navigate("/planning")}
+            onUpgrade={() => navigate("/subscribe/runapp/basic?upgrade=1")}
+          />
+        )}
       </div>
     </>
   );
@@ -273,7 +344,7 @@ function StackListRoute() {
       onViewStack={(stackName: string) =>
         navigate(`/runapp/${subNumber}/${encodeURIComponent(stackName)}`)
       }
-      onNewSubscription={() => navigate("/planning")}
+      onUpgrade={() => navigate("/subscribe/runapp/basic?upgrade=1")}
       onCreateStack={() => navigate(`/runapp/${subNumber}/create`)}
       onEditStack={(stackName: string) =>
         navigate(`/runapp/${subNumber}/${encodeURIComponent(stackName)}/edit`)
@@ -365,23 +436,36 @@ function ServiceDetailRoute() {
 
 function DatabaseRoute() {
   const navigate = useNavigate();
+  const { isFirstUser } = useFirstUser();
+  const subscribeNavigate = useSubscribeNavigate();
   return (
     <>
       <h1 className="text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
         Databases
       </h1>
       <div className="mt-7">
-        <MultiSubscriptionView
-          resourceLabel="Database"
-          description={`${PLACEHOLDER_SUBSCRIPTION_COUNT} active — each subscription runs one database instance.`}
-          footerLabel="View Instance"
-          planName="Standard"
-          stats={DATABASE_SUBSCRIPTION_STATS}
-          onSelectSubscription={(n: number) =>
-            navigate(`/database/${encodeURIComponent(`DB Instance ${n}`)}`)
-          }
-          onNewSubscription={() => navigate("/planning")}
-        />
+        {isFirstUser ? (
+          <EmptyState
+            icon={Database}
+            title="No Database subscriptions yet"
+            description="Subscribe to a Database plan to create your first instance."
+            actionLabel="Subscribe Plan"
+            onAction={() => subscribeNavigate("/subscribe/database/standard")}
+          />
+        ) : (
+          <MultiSubscriptionView
+            resourceLabel="Database"
+            description={`${PLACEHOLDER_SUBSCRIPTION_COUNT} active — each subscription runs one database instance.`}
+            footerLabel="View Instance"
+            planName="Standard"
+            stats={DATABASE_SUBSCRIPTION_STATS}
+            onSelectSubscription={(n: number) =>
+              navigate(`/database/${encodeURIComponent(`DB Instance ${n}`)}`)
+            }
+            onNewSubscription={() => navigate("/planning")}
+            onUpgrade={() => navigate("/subscribe/database/standard?upgrade=1")}
+          />
+        )}
       </div>
     </>
   );
@@ -394,29 +478,43 @@ function DatabaseInstanceRoute() {
     <DatabaseInstanceDetailPage
       instanceName={decodeURIComponent(instanceName ?? "")}
       onBack={() => navigate("/database")}
+      onUpgrade={() => navigate("/subscribe/database/standard?upgrade=1")}
     />
   );
 }
 
 function VpsRoute() {
   const navigate = useNavigate();
+  const { isFirstUser } = useFirstUser();
+  const subscribeNavigate = useSubscribeNavigate();
   return (
     <>
       <h1 className="text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
         VPS
       </h1>
       <div className="mt-7">
-        <MultiSubscriptionView
-          resourceLabel="VPS"
-          description={`${PLACEHOLDER_SUBSCRIPTION_COUNT} active — each subscription is one full root-access server.`}
-          footerLabel="View Server"
-          planName="Standard"
-          stats={VPS_SUBSCRIPTION_STATS}
-          onSelectSubscription={(n: number) =>
-            navigate(`/vps/${encodeURIComponent(`VPS Instance ${n}`)}`)
-          }
-          onNewSubscription={() => navigate("/planning")}
-        />
+        {isFirstUser ? (
+          <EmptyState
+            icon={Server}
+            title="No VPS subscriptions yet"
+            description="Subscribe to a VPS plan to provision your first server."
+            actionLabel="Subscribe Plan"
+            onAction={() => subscribeNavigate("/subscribe/vps/standard")}
+          />
+        ) : (
+          <MultiSubscriptionView
+            resourceLabel="VPS"
+            description={`${PLACEHOLDER_SUBSCRIPTION_COUNT} active — each subscription is one full root-access server.`}
+            footerLabel="View Server"
+            planName="Standard"
+            stats={VPS_SUBSCRIPTION_STATS}
+            onSelectSubscription={(n: number) =>
+              navigate(`/vps/${encodeURIComponent(`VPS Instance ${n}`)}`)
+            }
+            onNewSubscription={() => navigate("/planning")}
+            onUpgrade={() => navigate("/subscribe/vps/standard?upgrade=1")}
+          />
+        )}
       </div>
     </>
   );
@@ -436,11 +534,45 @@ function GroupDetailRoute() {
 function VpsInstanceRoute() {
   const { instanceName } = useParams<{ instanceName: string }>();
   const navigate = useNavigate();
+  const decodedName = decodeURIComponent(instanceName ?? "");
+  const [provisioned, setProvisioned] = useState<VpsCreateResult | null>(
+    () => VPS_PROVISIONED[decodedName] ?? null
+  );
+
+  if (decodedName === UNPROVISIONED_VPS_INSTANCE && !provisioned) {
+    return (
+      <CreateVpsPage
+        instanceName={decodedName}
+        onBack={() => navigate("/vps")}
+        onCreate={(result) => {
+          VPS_PROVISIONED[decodedName] = result;
+          setProvisioned(result);
+        }}
+      />
+    );
+  }
+
   return (
     <VpsInstanceDetailPage
-      instanceName={decodeURIComponent(instanceName ?? "")}
+      instanceName={decodedName}
       onBack={() => navigate("/vps")}
-      onUpgrade={() => navigate("/subscribe/vps/standard")}
+      onUpgrade={() => navigate("/subscribe/vps/standard?upgrade=1")}
+      onMonitoring={() => navigate(`/vps/${encodeURIComponent(decodedName)}/monitoring`)}
+      overrides={provisioned ?? undefined}
+    />
+  );
+}
+
+function VpsMonitoringRoute() {
+  const { instanceName } = useParams<{ instanceName: string }>();
+  const navigate = useNavigate();
+  const decodedName = decodeURIComponent(instanceName ?? "");
+  const instance = VPS_INSTANCES[decodedName];
+  return (
+    <VpsMonitoringPage
+      instanceName={decodedName}
+      publicIp={instance?.network.publicIp ?? "103.56.1.11"}
+      onBack={() => navigate(`/vps/${encodeURIComponent(decodedName)}`)}
     />
   );
 }
@@ -480,6 +612,7 @@ export default function DashboardPage() {
         <Route path="/dashboard/:tab" element={<DashboardRoute />} />
         <Route path="/planning" element={<PlanningPage />} />
         <Route path="/payment" element={<PaymentRoute />} />
+        <Route path="/profile" element={<ProfileRoute />} />
         <Route path="/billing" element={<Navigate to={`/billing/${WALLET_TABS[0].key}`} replace />} />
         <Route path="/billing/:tab" element={<BillingRoute />} />
         <Route path="/topup" element={<TopUpRoute />} />
@@ -496,6 +629,7 @@ export default function DashboardPage() {
         <Route path="/database/:instanceName" element={<DatabaseInstanceRoute />} />
         <Route path="/vps" element={<VpsRoute />} />
         <Route path="/vps/:instanceName" element={<VpsInstanceRoute />} />
+        <Route path="/vps/:instanceName/monitoring" element={<VpsMonitoringRoute />} />
         <Route path="/groups" element={<GroupsRoute />} />
         <Route path="/groups/:groupId" element={<GroupDetailRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
