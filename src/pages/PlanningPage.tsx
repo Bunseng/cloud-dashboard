@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Sparkles } from "@/components/animate-ui/icons/sparkles";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,19 +14,29 @@ import {
 } from "../data/pricing";
 
 /* ------------------------------------------------------------------ *
- * Planning — reached from Home's "All Plans" button. A centred pitch,
- * category tabs, and the real pricing grid per category (from
- * SERVICE_PRICING). No marketing footer here — that's kept to the
- * Log Out page only, the one screen that lives outside the dashboard
- * shell entirely.
+ * Planning — reached from Home's "All Plans" button (or, for a First
+ * User, straight from a service's own "Subscribe Plan" empty state via
+ * ?service=, which preselects that service's tab instead of always
+ * opening on Storage). A centred pitch, category tabs, and the real
+ * pricing grid per category (from SERVICE_PRICING). No marketing
+ * footer here — that's kept to the Log Out page only, the one screen
+ * that lives outside the dashboard shell entirely.
  *
  * The category switcher uses the same shadcn Tabs + shared pill
  * classes as Billing/Dashboard instead of a one-off button list, so
  * every tab-like control in the app looks and behaves the same way.
  * ------------------------------------------------------------------ */
 
+function isPricingKey(value: string | null): value is PricingServiceKey {
+  return PRICING_CATEGORIES.some((c) => c.key === value);
+}
+
 export function PlanningPage() {
-  const [categoryKey, setCategoryKey] = useState<PricingServiceKey>(PRICING_CATEGORIES[0].key);
+  const [searchParams] = useSearchParams();
+  const requestedService = searchParams.get("service");
+  const [categoryKey, setCategoryKey] = useState<PricingServiceKey>(
+    isPricingKey(requestedService) ? requestedService : PRICING_CATEGORIES[0].key
+  );
   const [currency, setCurrency] = useState<DisplayCurrency>("KHR");
   const category = PRICING_CATEGORIES.find((c) => c.key === categoryKey)!;
   const tiers = SERVICE_PRICING[categoryKey];

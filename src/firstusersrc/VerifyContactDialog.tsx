@@ -32,7 +32,7 @@ import { OtpInput } from "./OtpInput";
  * OTP input that auto-submits the instant all 6 digits are in.
  * ------------------------------------------------------------------ */
 
-const FIELD_META = {
+export const FIELD_META = {
   phone: {
     icon: Phone,
     label: "Phone Number",
@@ -63,16 +63,16 @@ const FIELD_META = {
 
 export type VerifyField = keyof typeof FIELD_META;
 
-function generateCode(): string {
+export function generateCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-function FieldStatus({ valid }: { valid: boolean }) {
+export function FieldStatus({ valid }: { valid: boolean }) {
   if (!valid) return null;
   return <CircleCheck className="h-4 w-4 shrink-0 text-emerald-500" animateOnView />;
 }
 
-function SuccessFlash({ label }: { label: string }) {
+export function SuccessFlash({ label }: { label: string }) {
   return (
     <div className="flex flex-col items-center gap-3 py-6">
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/40">

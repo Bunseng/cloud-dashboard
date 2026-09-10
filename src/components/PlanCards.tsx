@@ -10,6 +10,8 @@ import { Separator } from "@/components/ui/separator";
 
 import { PLACEHOLDER_SUBSCRIPTION_COUNT } from "../data/billing";
 import { formatPlanPrice, getTierTheme, type DisplayCurrency, type PricingServiceKey } from "../data/pricing";
+import { SubscribeVerifyDialog } from "../firstusersrc/SubscribeVerifyDialog";
+import { useVerifyBeforeSubscribe } from "../firstusersrc/useVerifyBeforeSubscribe";
 import { BillingDashboardButton, ClickableSurface } from "./atoms";
 
 /* One tier card, shared by the Planning page and Storage's plan-compare
@@ -39,6 +41,7 @@ export function PlanTierCard({
   // ids ("free"/"transcoder") do.
   const theme = getTierTheme(tier.id);
   const priceDisplay = formatPlanPrice(tier.priceKHR, currency);
+  const { fields, guard, handleFieldVerified, handleAllVerified, cancel } = useVerifyBeforeSubscribe();
 
   return (
     <div
@@ -101,12 +104,24 @@ export function PlanTierCard({
         <Button
           variant="outline"
           disabled={isCurrent}
-          onClick={() => navigate(`/subscribe/${categoryKey}/${tier.id}`)}
+          onClick={() => guard(() => navigate(`/subscribe/${categoryKey}/${tier.id}`))}
           className="h-9 w-full rounded-lg text-[13px] font-medium text-zinc-500 dark:text-zinc-400"
         >
           {isCurrent ? "Current Plan" : "Try Now"}
         </Button>
       </div>
+
+      {fields.length > 0 && (
+        <SubscribeVerifyDialog
+          fields={fields}
+          open={fields.length > 0}
+          onOpenChange={(open) => {
+            if (!open) cancel();
+          }}
+          onFieldVerified={handleFieldVerified}
+          onAllVerified={handleAllVerified}
+        />
+      )}
     </div>
   );
 }
