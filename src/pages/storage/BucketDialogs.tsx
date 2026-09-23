@@ -1,6 +1,5 @@
-import { useEffect, useState, type DragEvent, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Plus } from "@/components/animate-ui/icons/plus";
-import { Upload } from "@/components/animate-ui/icons/upload";
 import { X } from "@/components/animate-ui/icons/x";
 import { Button } from "@/components/ui/button";
 import {
@@ -85,117 +84,6 @@ export function CreateBucketDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export function UploadFileDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const [files, setFiles] = useState<File[]>([]);
-  const [dragging, setDragging] = useState(false);
-
-  function addFiles(list: FileList | null) {
-    if (!list) return;
-    setFiles((prev) => [...prev, ...Array.from(list)]);
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) {
-          setFiles([]);
-          setDragging(false);
-        }
-        onOpenChange(next);
-      }}
-    >
-      <DialogContent className="max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>Upload File</DialogTitle>
-          <DialogDescription>
-            Add one or more files to this bucket.
-          </DialogDescription>
-        </DialogHeader>
-
-        <label
-          onDragOver={(e: DragEvent<HTMLLabelElement>) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e: DragEvent<HTMLLabelElement>) => {
-            e.preventDefault();
-            setDragging(false);
-            addFiles(e.dataTransfer.files);
-          }}
-          className={
-            "flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-10 text-center motion-safe:transition-colors " +
-            (dragging
-              ? "border-[#1C75BC] bg-[#EFF6FF] dark:bg-zinc-900"
-              : "border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900")
-          }
-        >
-          <input
-            type="file"
-            multiple
-            className="sr-only"
-            onChange={(e) => {
-              addFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          <Upload className="h-8 w-8 text-zinc-400" strokeWidth={1.5} animateOnView />
-          <p className="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
-            Drag & drop files here
-          </p>
-          <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-            or <span className="text-[#1C75BC] dark:text-[#6FA8D8]">browse</span> from your computer
-          </p>
-        </label>
-
-        {files.length > 0 && (
-          <ul className="max-h-[168px] space-y-2 overflow-y-auto">
-            {files.map((file, i) => (
-              <li
-                key={`${file.name}-${i}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
-              >
-                <span className="min-w-0 flex-1 truncate text-[13px] text-zinc-900 dark:text-zinc-100">
-                  {file.name}
-                </span>
-                <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                  {(file.size / 1024).toFixed(2)} kb
-                </span>
-                <button
-                  type="button"
-                  aria-label={`Remove ${file.name}`}
-                  onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="shrink-0 text-zinc-400 hover:text-red-500"
-                >
-                  <X className="h-4 w-4" animateOnHover animateOnTap />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <DialogFooter className="gap-2">
-          <DialogClose asChild>
-            <Button variant="outline" className="h-9 text-sm">
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button variant="brand" disabled={files.length === 0} className="h-9 text-sm">
-            Upload{files.length > 0 ? ` ${files.length} file${files.length > 1 ? "s" : ""}` : ""}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

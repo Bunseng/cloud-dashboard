@@ -19,6 +19,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+import { StatusBadge } from "../../components/atoms";
+import type { Backup } from "./DatabaseBackupContext";
 
 /* ------------------------------------------------------------------ *
  * Database instance dialogs — follows DigitalOcean's cluster Settings
@@ -229,6 +240,106 @@ export function AddIpWhitelistDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* File Name / Date and Time / Size — the same summary of exactly which
+   backup is in question, shown both in Backup History and in the
+   Restore confirmation, so either dialog answers "which one is this?"
+   without needing to close it and go check the table row. */
+export function BackupInfoSummary({
+  backup,
+}: {
+  backup: { name: string; createdOn: string; size: string };
+}) {
+  return (
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border border-zinc-200 p-3 text-[13px] dark:border-zinc-800">
+      <div className="col-span-2">
+        <dt className="text-zinc-500 dark:text-zinc-400">File Name</dt>
+        <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">{backup.name}</dd>
+      </div>
+      <div>
+        <dt className="text-zinc-500 dark:text-zinc-400">Date and Time</dt>
+        <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">{backup.createdOn}</dd>
+      </div>
+      <div>
+        <dt className="text-zinc-500 dark:text-zinc-400">Size</dt>
+        <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">{backup.size}</dd>
+      </div>
+    </dl>
+  );
+}
+
+/* Backup history — Figma's per-row "History" link, adapted to a
+   Dialog instead of a separate page: every action ever taken against
+   this backup (the automated Backup that produced it, any later
+   Restore), each with its own Action Type/Status/timing — read-only,
+   since these are a record of what already happened. */
+export function BackupHistoryDialog({
+  open,
+  onOpenChange,
+  backup,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  backup: Backup | null;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>Backup History</DialogTitle>
+        </DialogHeader>
+
+        {backup && <BackupInfoSummary backup={backup} />}
+
+        {backup && (
+          <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-zinc-50 dark:bg-zinc-900/60">
+                    <TableHead>Action Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Initialized At</TableHead>
+                    <TableHead>Finished At</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {backup.history.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="font-medium text-zinc-900 dark:text-zinc-50">
+                        {entry.actionType}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge
+                          label={entry.status}
+                          tone={entry.status === "Success" ? "green" : "red"}
+                        />
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-zinc-600 dark:text-zinc-300">
+                        {entry.initializedAt}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-zinc-600 dark:text-zinc-300">
+                        {entry.finishedAt}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" className="h-9 text-sm">
+              Close
+            </Button>
+          </DialogClose>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

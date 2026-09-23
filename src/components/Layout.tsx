@@ -68,10 +68,16 @@ export function Layout({
     breadcrumb = ["Home", "Run App", `Subscription ${segs[1]}`];
   } else if (page === "runapp") {
     breadcrumb = ["Home", "Run App"];
+  } else if (page === "database" && segs[1] === "backups") {
+    breadcrumb = ["Home", "Databases", "Backups"];
+  } else if (page === "database" && segs[2] === "backups") {
+    breadcrumb = ["Home", "Databases", segs[1], "Backups"];
   } else if (page === "database" && segs[1]) {
     breadcrumb = ["Home", "Databases", segs[1]];
   } else if (page === "database") {
     breadcrumb = ["Home", "Databases"];
+  } else if (page === "vps" && segs[1] === "snapshots") {
+    breadcrumb = ["Home", "VPS", "Snapshots"];
   } else if (page === "vps" && segs[2] === "monitoring") {
     breadcrumb = ["Home", "VPS", segs[1], "Monitoring"];
   } else if (page === "vps" && segs[1]) {
@@ -104,8 +110,10 @@ export function Layout({
       <Sidebar
         collapsed={collapsed}
         page={page}
+        pathname={pathname}
         onNavigateMain={(id) => navigate(id === "home" ? "/" : `/${id}`)}
         onSelectDetailPage={(id) => navigate(`/${id}`)}
+        onSelectSecondary={(path) => navigate(path)}
         onSelectAllPlans={() => navigate("/planning")}
         onLogOut={() => navigate("/logout")}
       />
@@ -119,6 +127,7 @@ export function Layout({
           onOpenBilling={() => navigate("/billing")}
           onOpenPayment={() => navigate("/payment")}
           onOpenProfile={() => navigate("/profile")}
+          onOpenMedia={() => navigate("/media")}
           onLogOut={() => navigate("/logout")}
         />
 

@@ -22,15 +22,19 @@ import logoIcon from "@/assets/sidebar/logo-icon.svg";
 export function Sidebar({
   collapsed,
   page,
+  pathname,
   onNavigateMain,
   onSelectDetailPage,
+  onSelectSecondary,
   onSelectAllPlans,
   onLogOut,
 }: {
   collapsed?: boolean;
   page?: string;
+  pathname?: string;
   onNavigateMain: (id: string) => void;
   onSelectDetailPage: (id: string) => void;
+  onSelectSecondary?: (path: string) => void;
   onSelectAllPlans: () => void;
   onLogOut: () => void;
 }) {
@@ -49,12 +53,15 @@ export function Sidebar({
     const detailFeature = FEATURES.find((f) => f.id === page);
     if (detailFeature) {
       setOpenGroup(detailFeature.id);
-      setActiveChild(detailFeature.resourceListLabel);
+      const matchedSecondary = detailFeature.secondaryNav?.find(
+        (n) => pathname && pathname.startsWith(n.path)
+      );
+      setActiveChild(matchedSecondary ? matchedSecondary.label : detailFeature.resourceListLabel);
     } else {
       setOpenGroup(null);
       setActiveChild(null);
     }
-  }, [page]);
+  }, [page, pathname]);
 
   // Clicking a Feature's own row opens that feature's page, and marks
   // both the group and its resource child active — so the whole path
@@ -63,6 +70,14 @@ export function Sidebar({
     setOpenGroup(item.id);
     setActiveChild(item.resourceListLabel);
     onSelectDetailPage(item.id);
+  }
+
+  // Clicking one of a Feature's secondary rows (e.g. VPS's "Snapshots")
+  // navigates straight to that row's own top-level route.
+  function selectSecondary(item: any, nav: { label: string; path: string }) {
+    setOpenGroup(item.id);
+    setActiveChild(nav.label);
+    onSelectSecondary?.(nav.path);
   }
 
   const menuButtonBase =
@@ -138,7 +153,13 @@ export function Sidebar({
         <ul className="space-y-0.5">
           {FEATURES.map((item) => {
             const isOpen = openGroup === item.id && !collapsed;
-            const children = [item.resourceListLabel];
+            const children = [
+              { label: item.resourceListLabel, onSelect: () => selectFeature(item) },
+              ...(item.secondaryNav ?? []).map((nav) => ({
+                label: nav.label,
+                onSelect: () => selectSecondary(item, nav),
+              })),
+            ];
             // The group reads as selected whenever you're somewhere inside
             // it — which is exactly when a child is marked active.
             const isFeatureActive = openGroup === item.id && Boolean(activeChild);
@@ -178,16 +199,12 @@ export function Sidebar({
                     <ul className="mt-0.5 ml-[30px] space-y-0.5 border-l border-zinc-200 pl-3 dark:border-zinc-800">
                       {children.map((child) => {
                         const isChildActive =
-                          item.id === openGroup && child === activeChild;
+                          item.id === openGroup && child.label === activeChild;
                         return (
-                          <li key={child}>
+                          <li key={child.label}>
                             <button
                               type="button"
-                              onClick={() => {
-                                setOpenGroup(item.id);
-                                setActiveChild(child);
-                                onSelectDetailPage(item.id);
-                              }}
+                              onClick={child.onSelect}
                               aria-current={isChildActive ? "page" : undefined}
                               className={
                                 "w-full rounded-md px-2 py-1.5 text-left text-[13px] " +
@@ -197,7 +214,7 @@ export function Sidebar({
                                   : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100")
                               }
                             >
-                              {child}
+                              {child.label}
                             </button>
                           </li>
                         );

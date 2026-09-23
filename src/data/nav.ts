@@ -46,6 +46,10 @@ export interface Feature {
   resourceListLabel: string;
   newAction: string | null;
   multiSubscription?: boolean;
+  // Extra sidebar rows under this Feature's group, alongside its main
+  // resource list (e.g. VPS's "Snapshots", next to "Instances") — each
+  // is its own top-level route rather than a child of any one instance.
+  secondaryNav?: { label: string; path: string }[];
 }
 
 export const MAIN_NAV: NavItem[] = [
@@ -109,6 +113,7 @@ export const FEATURES: Feature[] = [
     resourceListLabel: "Databases",
     newAction: null,
     multiSubscription: true,
+    secondaryNav: [{ label: "Backups", path: "/database/backups" }],
   },
   {
     id: "vps",
@@ -122,5 +127,6 @@ export const FEATURES: Feature[] = [
     // Same shape as Run App/Database — each subscription is its own
     // full root-access server, not a shared pool.
     multiSubscription: true,
+    secondaryNav: [{ label: "Snapshots", path: "/vps/snapshots" }],
   },
 ];

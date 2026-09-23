@@ -132,27 +132,34 @@ export function EditVpsDialog({
 }
 
 /* ------------------------------------------------------------------ *
- * Create Snapshot — names the snapshot (defaulting to a timestamp-ish
- * placeholder); the resulting size/date are made up by the caller
- * since there's no real disk to image here.
+ * Create Snapshot — picks which instance to image and names the
+ * snapshot (defaulting to a timestamp-ish placeholder); the resulting
+ * size/date are made up by the caller since there's no real disk to
+ * image here.
  * ------------------------------------------------------------------ */
 
 export function CreateSnapshotDialog({
   open,
   onOpenChange,
-  instanceName,
+  instances,
+  defaultInstance,
   onCreate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  instanceName: string;
-  onCreate: (name: string) => void;
+  instances: string[];
+  defaultInstance?: string;
+  onCreate: (data: { name: string; instanceName: string }) => void;
 }) {
-  const defaultName = `${instanceName}-snapshot`;
-  const [name, setName] = useState(defaultName);
+  const [instanceName, setInstanceName] = useState(defaultInstance ?? instances[0] ?? "");
+  const [name, setName] = useState(`${instanceName}-snapshot`);
 
   useEffect(() => {
-    if (open) setName(defaultName);
+    if (open) {
+      const initialInstance = defaultInstance ?? instances[0] ?? "";
+      setInstanceName(initialInstance);
+      setName(`${initialInstance}-snapshot`);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -162,22 +169,42 @@ export function CreateSnapshotDialog({
         <DialogHeader>
           <DialogTitle>Create Snapshot</DialogTitle>
           <DialogDescription>
-            Captures a full image of this server's disk right now. You can restore a new VPS from
-            it later.
+            Captures a full image of a server's disk right now. You can restore a new VPS from it
+            later.
           </DialogDescription>
         </DialogHeader>
 
-        <div>
-          <Label htmlFor="snapshot-name" className="text-zinc-900 dark:text-zinc-100">
-            Snapshot Name
-          </Label>
-          <Input
-            id="snapshot-name"
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-2"
-          />
+        <div className="space-y-4">
+          {instances.length > 1 && (
+            <div>
+              <Label className="text-zinc-900 dark:text-zinc-100">Instance</Label>
+              <Select value={instanceName} onValueChange={setInstanceName}>
+                <SelectTrigger className="mt-2 h-9 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {instances.map((i) => (
+                    <SelectItem key={i} value={i}>
+                      {i}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="snapshot-name" className="text-zinc-900 dark:text-zinc-100">
+              Snapshot Name
+            </Label>
+            <Input
+              id="snapshot-name"
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-2"
+            />
+          </div>
         </div>
 
         <DialogFooter className="gap-2">
@@ -188,9 +215,9 @@ export function CreateSnapshotDialog({
           </DialogClose>
           <Button
             variant="brand"
-            disabled={!name.trim()}
+            disabled={!name.trim() || !instanceName}
             onClick={() => {
-              onCreate(name.trim());
+              onCreate({ name: name.trim(), instanceName });
               onOpenChange(false);
             }}
             className="h-9 text-sm"

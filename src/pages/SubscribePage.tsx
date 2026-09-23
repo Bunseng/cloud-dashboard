@@ -259,7 +259,12 @@ export function SubscribePage({
   // (marked "Current Plan", can't re-select/pay for it) instead of just
   // a pre-picked starting point.
   mode?: SubscribeMode;
-  onDone: () => void;
+  // Called with the tier actually bought — the Plan step lets you
+  // change it right up until payment, so it can end up different from
+  // initialTierId; callers that need to record which plan won (e.g.
+  // Database Backup, scoped to one instance) read it from here rather
+  // than re-reading initialTierId.
+  onDone: (tierId: string) => void;
   onCancel: () => void;
 }) {
   const isUpgrade = mode === "upgrade";
@@ -337,7 +342,7 @@ export function SubscribePage({
             categoryLabel={categoryLabel}
             tierName={tier.name}
             isUpgrade={isUpgrade}
-            onDone={onDone}
+            onDone={() => onDone(tier.id)}
           />
         )}
       </div>

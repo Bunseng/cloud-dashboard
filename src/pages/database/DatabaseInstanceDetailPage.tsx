@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
 import { Lock } from "@/components/animate-ui/icons/lock";
 import { Pencil } from "@/components/animate-ui/icons/pencil";
 import { Plus } from "@/components/animate-ui/icons/plus";
@@ -18,6 +19,8 @@ import {
   UsageBar,
 } from "../../components/atoms";
 import { PLACEHOLDER_SUBSCRIPTION_COUNT } from "../../data/billing";
+import { SERVICE_PRICING } from "../../data/pricing";
+import { useDatabaseBackup } from "./DatabaseBackupContext";
 import { AddIpWhitelistDialog, EditDatabaseDialog } from "./DatabaseDialogs";
 
 /* ------------------------------------------------------------------ *
@@ -72,10 +75,12 @@ export function DatabaseInstanceDetailPage({
   instanceName,
   onBack,
   onUpgrade,
+  onOpenBackups,
 }: {
   instanceName: string;
   onBack: () => void;
   onUpgrade?: () => void;
+  onOpenBackups: () => void;
 }) {
   const base = DATABASE_INSTANCES[instanceName] ?? {
     ...DATABASE_INSTANCE_TEMPLATE,
@@ -86,6 +91,10 @@ export function DatabaseInstanceDetailPage({
   const [editOpen, setEditOpen] = useState(false);
   const [addIpOpen, setAddIpOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const { isSubscribed, getTierId, backups } = useDatabaseBackup();
+  const backupSubscribed = isSubscribed(instanceName);
+  const instanceBackupCount = backups.filter((b) => b.instanceName === instanceName).length;
+  const backupPlan = SERVICE_PRICING.databaseBackup.find((t) => t.id === getTierId(instanceName));
 
   return (
     <div>
@@ -238,6 +247,44 @@ export function DatabaseInstanceDetailPage({
                 </p>
               </div>
             )}
+          </Card>
+
+          {/* Backups — the full list + create flow lives on its own
+              page (matches Figma's dedicated "{instance} - Back Up
+              list" screen); this card is just the entry point. Not
+              subscribed yet: the button sends you straight into the
+              Subscribe flow (that page auto-redirects there) instead
+              of picking a plan inline here. */}
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle>Backups</CardTitle>
+                <p className="mt-1 text-[13px] text-[#71717a] dark:text-zinc-400">
+                  {backupSubscribed
+                    ? `${instanceBackupCount} backup${instanceBackupCount === 1 ? "" : "s"}${
+                        backupPlan ? ` · ${backupPlan.name} plan` : ""
+                      }`
+                    : "Not enabled yet — subscribe to a Backup plan to get started."}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={onOpenBackups}
+                className="h-9 shrink-0 gap-1.5 text-sm"
+              >
+                {backupSubscribed ? (
+                  <>
+                    Backup List
+                    <ChevronRight className="h-3.5 w-3.5" animateOnHover animateOnTap />
+                  </>
+                ) : (
+                  <>
+                    Enable Backup
+                    <ChevronRight className="h-3.5 w-3.5" animateOnHover animateOnTap />
+                  </>
+                )}
+              </Button>
+            </div>
           </Card>
 
           {/* Danger zone — the one destructive action for this instance,

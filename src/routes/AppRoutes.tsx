@@ -34,7 +34,13 @@ import { TopUpPage } from "../pages/TopUpPage";
 import { SubscribePage } from "../pages/SubscribePage";
 import { LogOutPage } from "../pages/LogOutPage";
 import { PublicPricingPage } from "../pages/PublicPricingPage";
-import { PRICING_CATEGORIES, type PricingServiceKey } from "../data/pricing";
+import { PRICING_CATEGORIES, type PricingCategory, type PricingServiceKey } from "../data/pricing";
+
+// Database Backup isn't a real service tab (not in PRICING_CATEGORIES),
+// so its icon is typed the same loose way PricingCategory.icon is —
+// otherwise Database's own narrow animation-trigger type doesn't line up
+// with SubscribePage's broader `icon` prop type.
+const DATABASE_BACKUP_ICON: PricingCategory["icon"] = Database;
 
 import { StoragePanel, StorageUsagePanel } from "../pages/storage/StoragePanel";
 import { CreateBucketDialog } from "../pages/storage/BucketDialogs";
@@ -52,9 +58,13 @@ import { CreateRunAppPage, type RunAppServiceSeed } from "../pages/runapp/Create
 import { RESOURCE_PRESETS } from "../pages/runapp/RunAppDialogs";
 
 import {
+  DATABASE_INSTANCES,
   DATABASE_SUBSCRIPTION_STATS,
   DatabaseInstanceDetailPage,
 } from "../pages/database/DatabaseInstanceDetailPage";
+import { DatabaseBackupsPage } from "../pages/database/DatabaseBackupsPage";
+import { DatabaseInstanceBackupsPage } from "../pages/database/DatabaseInstanceBackupsPage";
+import { useDatabaseBackup } from "../pages/database/DatabaseBackupContext";
 
 import {
   VPS_INSTANCES,
@@ -62,6 +72,7 @@ import {
   VpsInstanceDetailPage,
 } from "../pages/vps/VpsInstanceDetailPage";
 import { VpsMonitoringPage } from "../pages/vps/VpsMonitoringPage";
+import { VpsSnapshotsPage } from "../pages/vps/VpsSnapshotsPage";
 import { CreateVpsPage, VPS_PROVISIONED, type VpsCreateResult } from "../pages/vps/CreateVpsPage";
 
 /* Subscription 3 is the one VPS subscription whose server hasn't been
@@ -72,6 +83,12 @@ const UNPROVISIONED_VPS_INSTANCE = "VPS Instance 3";
 
 import { GroupsListPage } from "../pages/groups/GroupsListPage";
 import { GroupDetailPage } from "../pages/groups/GroupDetailPage";
+
+import { MediaLayout } from "../media/MediaLayout";
+import { RoomsPage } from "../pages/media/RoomsPage";
+import { RoomDetailPage } from "../pages/media/RoomDetailPage";
+import { AnalyticsPage as MediaAnalyticsPage } from "../pages/media/AnalyticsPage";
+import { PlansPage as MediaPlansPage } from "../pages/media/PlansPage";
 
 /* ------------------------------------------------------------------ *
  * Page
@@ -208,6 +225,55 @@ function SubscribeRoute() {
   const { category, tierId } = useParams<{ category: string; tierId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { subscribe, addBackup } = useDatabaseBackup();
+
+  // Database Backup is its own add-on subscription, not one of the real
+  // services listed on Planning/Public Pricing — same Plan → Payment →
+  // Success flow (SubscribePage), but it isn't in PRICING_CATEGORIES.
+  // It's also always scoped to one specific database instance (?instance=
+  // — every entry point into this flow is a specific instance's own
+  // Backups page auto-redirecting here), not one blanket subscription
+  // for every database, so finishing it only enables Backup for that
+  // instance and lands back on ?return= (that instance's Backups page).
+  // Backups are automatic once subscribed — no manual "Create Backup"
+  // step anywhere — so the plan's first backup is captured right here.
+  if (category === "databaseBackup") {
+    const returnTo = searchParams.get("return") || "/database/backups";
+    const instanceForBackup = searchParams.get("instance");
+    const isBackupUpgrade = Boolean(searchParams.get("upgrade"));
+    return (
+      <SubscribePage
+        categoryKey="databaseBackup"
+        categoryLabel="Database Backup"
+        icon={DATABASE_BACKUP_ICON}
+        initialTierId={tierId ?? "basic"}
+        mode={isBackupUpgrade ? "upgrade" : "new"}
+        onDone={(purchasedTierId) => {
+          if (instanceForBackup) {
+            subscribe(instanceForBackup, purchasedTierId);
+            // Upgrading an existing plan changes the tier only — it
+            // doesn't produce a fresh backup the way first subscribing
+            // does.
+            if (!isBackupUpgrade) {
+              addBackup({
+                name: `${instanceForBackup}-backup`,
+                instanceName: instanceForBackup,
+                size: DATABASE_INSTANCES[instanceForBackup]?.resource.storage ?? "60 GB",
+                createdOn: new Date().toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                }),
+              });
+            }
+          }
+          navigate(returnTo);
+        }}
+        onCancel={() => navigate(returnTo)}
+      />
+    );
+  }
+
   const cat =
     PRICING_CATEGORIES.find((c) => c.key === category) ?? PRICING_CATEGORIES[0];
 
@@ -474,11 +540,25 @@ function DatabaseRoute() {
 function DatabaseInstanceRoute() {
   const { instanceName } = useParams<{ instanceName: string }>();
   const navigate = useNavigate();
+  const decodedName = decodeURIComponent(instanceName ?? "");
   return (
     <DatabaseInstanceDetailPage
-      instanceName={decodeURIComponent(instanceName ?? "")}
+      instanceName={decodedName}
       onBack={() => navigate("/database")}
       onUpgrade={() => navigate("/subscribe/database/standard?upgrade=1")}
+      onOpenBackups={() => navigate(`/database/${encodeURIComponent(decodedName)}/backups`)}
+    />
+  );
+}
+
+function DatabaseInstanceBackupsRoute() {
+  const { instanceName } = useParams<{ instanceName: string }>();
+  const navigate = useNavigate();
+  const decodedName = decodeURIComponent(instanceName ?? "");
+  return (
+    <DatabaseInstanceBackupsPage
+      instanceName={decodedName}
+      onBack={() => navigate(`/database/${encodeURIComponent(decodedName)}`)}
     />
   );
 }
@@ -572,6 +652,12 @@ function VpsMonitoringRoute() {
     <VpsMonitoringPage
       instanceName={decodedName}
       publicIp={instance?.network.publicIp ?? "103.56.1.11"}
+      hostname={instance?.hostname}
+      os={instance?.os}
+      region={instance?.region}
+      cpuCores={instance ? parseFloat(instance.resource.cpu) : undefined}
+      memoryTotalGiB={instance ? parseFloat(instance.resource.memory) : undefined}
+      storageTotalGiB={instance ? parseFloat(instance.resource.storage) : undefined}
       onBack={() => navigate(`/vps/${encodeURIComponent(decodedName)}`)}
     />
   );
@@ -626,14 +712,29 @@ export default function DashboardPage() {
         <Route path="/runapp/:subNumber/:stackName" element={<ServiceListRoute />} />
         <Route path="/runapp/:subNumber/:stackName/:serviceName" element={<ServiceDetailRoute />} />
         <Route path="/database" element={<DatabaseRoute />} />
+        <Route path="/database/backups" element={<DatabaseBackupsPage />} />
         <Route path="/database/:instanceName" element={<DatabaseInstanceRoute />} />
+        <Route path="/database/:instanceName/backups" element={<DatabaseInstanceBackupsRoute />} />
         <Route path="/vps" element={<VpsRoute />} />
+        <Route path="/vps/snapshots" element={<VpsSnapshotsPage />} />
         <Route path="/vps/:instanceName" element={<VpsInstanceRoute />} />
         <Route path="/vps/:instanceName/monitoring" element={<VpsMonitoringRoute />} />
         <Route path="/groups" element={<GroupsRoute />} />
         <Route path="/groups/:groupId" element={<GroupDetailRoute />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
+
+      {/* Media — its own Sidebar/header (MediaLayout), separate from the
+          main dashboard's Layout, the way /logout and /pricing already
+          sit outside it. Reached from the account menu's "Media" item. */}
+      <Route element={<MediaLayout dark={dark} onToggleTheme={toggleTheme} />}>
+        <Route path="/media" element={<Navigate to="/media/rooms" replace />} />
+        <Route path="/media/rooms" element={<RoomsPage />} />
+        <Route path="/media/rooms/:roomId" element={<RoomDetailPage />} />
+        <Route path="/media/analytics" element={<MediaAnalyticsPage />} />
+        <Route path="/media/plans" element={<MediaPlansPage />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { BellRing } from "@/components/animate-ui/icons/bell-ring";
 import { Check } from "@/components/animate-ui/icons/check";
+import { Clapperboard } from "@/components/animate-ui/icons/clapperboard";
 import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
 import { Gem } from "@/components/animate-ui/icons/gem";
 import { LogOut } from "@/components/animate-ui/icons/log-out";
@@ -67,6 +68,7 @@ export function Topbar({
   onOpenBilling,
   onOpenPayment,
   onOpenProfile,
+  onOpenMedia,
   onLogOut,
 }: {
   onToggleSidebar?: () => void;
@@ -76,6 +78,7 @@ export function Topbar({
   onOpenBilling?: () => void;
   onOpenPayment?: () => void;
   onOpenProfile?: () => void;
+  onOpenMedia?: () => void;
   onLogOut?: () => void;
 }) {
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
@@ -238,6 +241,10 @@ export function Topbar({
             <DropdownMenuItem onSelect={() => onOpenProfile?.()}>
               <UserRound className="h-4 w-4" />
               Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onOpenMedia?.()}>
+              <Clapperboard className="h-4 w-4" />
+              Media
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onOpenBilling?.()}>
               <Receipt className="h-4 w-4" />

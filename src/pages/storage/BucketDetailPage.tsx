@@ -1,52 +1,18 @@
 import { useState } from "react";
+import { ArrowUpRight } from "@/components/animate-ui/icons/arrow-up-right";
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
-import { Download } from "@/components/animate-ui/icons/download";
-import { Ellipsis } from "@/components/animate-ui/icons/ellipsis";
-import { Eye } from "@/components/animate-ui/icons/eye";
+import { Info } from "@/components/animate-ui/icons/info";
 import { Pencil } from "@/components/animate-ui/icons/pencil";
-import { Trash2 } from "@/components/animate-ui/icons/trash-2";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import {
-  PAGINATION_CONTROLS,
-  PILL_TABS_LIST_CLASS,
-  PILL_TAB_TRIGGER_CLASS,
-  RefreshIconButton,
-  SearchField,
-} from "../../components/atoms";
-import {
-  ALLOWED_METHODS,
-  EditPolicyDialog,
-  MultiValueField,
-  UploadFileDialog,
-} from "./BucketDialogs";
+import { PILL_TABS_LIST_CLASS, PILL_TAB_TRIGGER_CLASS } from "../../components/atoms";
+import { ALLOWED_METHODS, EditPolicyDialog, MultiValueField } from "./BucketDialogs";
 
 export interface BucketFileRow {
   name: string;
@@ -244,152 +210,43 @@ function BucketSettingTab() {
   );
 }
 
-function BucketFileTab() {
-  const [rowsPerPage, setRowsPerPage] = useState("10");
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [selected, setSelected] = useState<string[]>([]);
-
-  const allSelected =
-    BUCKET_FILE_ROWS.length > 0 && selected.length === BUCKET_FILE_ROWS.length;
-
-  function toggleRow(name: string) {
-    setSelected((prev) =>
-      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+function BucketFileTab({ bucketName }: { bucketName: string }) {
+  function openStorageConsole() {
+    // Mock storage console — a real backend would issue a short-lived
+    // session URL for this bucket; uploading isn't supported from this
+    // dashboard yet, so this is the only way in to add files.
+    window.open(
+      `https://console.cloudplus.test/storage/${encodeURIComponent(bucketName)}`,
+      "_blank",
+      "noopener,noreferrer"
     );
   }
 
   return (
     <div className="mt-5">
-      <div className="flex items-center gap-2">
-        <SearchField />
-        <RefreshIconButton />
-      </div>
-
-      <div className="mt-5 flex justify-end">
-        <Button variant="brand" onClick={() => setUploadOpen(true)} className="h-9 px-4 text-sm">
-          Upload File
+      <div className="flex items-start gap-3 rounded-lg border border-[#1C75BC]/20 bg-[#EFF6FF] p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#1C75BC] dark:text-[#6FA8D8]" animateOnView />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+            Uploading isn't available from this dashboard yet
+          </p>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Use the Storage Console to upload files directly to this bucket.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={openStorageConsole}
+          className="h-9 shrink-0 gap-1.5 text-sm"
+        >
+          Open Storage Console
+          <ArrowUpRight className="h-3.5 w-3.5" animateOnHover animateOnTap />
         </Button>
       </div>
 
-      <div className="mt-5 rounded-lg border border-zinc-200 dark:border-zinc-800">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/60">
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={() =>
-                    setSelected(allSelected ? [] : BUCKET_FILE_ROWS.map((r) => r.name))
-                  }
-                  aria-label="Select all files"
-                />
-              </TableHead>
-              <TableHead className="w-[260px] text-[13px] text-zinc-500 dark:text-zinc-400">
-                Name
-              </TableHead>
-              <TableHead className="w-[160px] text-[13px] text-zinc-500 dark:text-zinc-400">
-                Type
-              </TableHead>
-              <TableHead className="w-[140px] text-[13px] text-zinc-500 dark:text-zinc-400">
-                Size
-              </TableHead>
-              <TableHead className="text-[13px] text-zinc-500 dark:text-zinc-400">
-                Date modified
-              </TableHead>
-              <TableHead className="text-right text-[13px] text-zinc-500 dark:text-zinc-400">
-                Actions
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {BUCKET_FILE_ROWS.map((row) => (
-              <TableRow key={row.name}>
-                <TableCell>
-                  <Checkbox
-                    checked={selected.includes(row.name)}
-                    onCheckedChange={() => toggleRow(row.name)}
-                    aria-label={`Select ${row.name}`}
-                  />
-                </TableCell>
-                <TableCell className="text-zinc-800 dark:text-zinc-100">{row.name}</TableCell>
-                <TableCell className="text-zinc-600 dark:text-zinc-400">{row.type}</TableCell>
-                <TableCell className="text-zinc-600 dark:text-zinc-400">{row.size}</TableCell>
-                <TableCell className="text-zinc-600 dark:text-zinc-400">
-                  {row.modified}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={`Actions for ${row.name}`}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-                      >
-                        <Ellipsis className="h-4 w-4" animateOnHover animateOnTap />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Eye className="h-4 w-4" />
-                        View Detail
-                      </DropdownMenuItem>
-                      <DropdownMenuItem aria-label={`Download ${row.name}`}>
-                        <Download className="h-4 w-4" />
-                        Download
-                      </DropdownMenuItem>
-                      <DropdownMenuItem variant="destructive" aria-label={`Delete ${row.name}`}>
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-[13px] text-zinc-500 dark:text-zinc-400">
-        <p>
-          {selected.length} of 68 row(s) selected.
-        </p>
-
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <span>Rows per page</span>
-            <Select value={rowsPerPage} onValueChange={setRowsPerPage}>
-              <SelectTrigger className="h-8 w-[60px] border-zinc-200 dark:border-zinc-800">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <span>Page 1 of 7</span>
-
-          <div className="flex items-center gap-1">
-            {PAGINATION_CONTROLS.map(({ Icon, label }) => (
-              <Button
-                key={label}
-                variant="outline"
-                size="icon"
-                disabled
-                aria-label={label}
-                className="h-8 w-8 border-zinc-200 dark:border-zinc-800"
-              >
-                <Icon className="h-4 w-4" animateOnHover animateOnTap />
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <UploadFileDialog open={uploadOpen} onOpenChange={setUploadOpen} />
+      {/* Search and the file list/pagination are hidden for now — there's
+          nothing real to search or page through until upload (via the
+          Storage Console above) is wired up to an actual file list. */}
     </div>
   );
 }
@@ -429,7 +286,7 @@ export function BucketDetailPage({
         </TabsList>
 
         <TabsContent value="file">
-          <BucketFileTab />
+          <BucketFileTab bucketName={bucketName} />
         </TabsContent>
 
         <TabsContent value="setting">

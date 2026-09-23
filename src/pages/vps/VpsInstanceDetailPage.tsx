@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
 import { Gauge } from "@/components/animate-ui/icons/gauge";
-import { Camera } from "@/components/animate-ui/icons/camera";
 import { Key } from "@/components/animate-ui/icons/key";
 import { Pencil } from "@/components/animate-ui/icons/pencil";
 import { Play } from "@/components/animate-ui/icons/play";
@@ -14,28 +13,23 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 import { ServicePlanCard } from "../../components/PlanCards";
-import {
-  BillingDashboardButton,
-  ConnectionRow,
-  RadialGauge,
-  StatTile,
-  StatusBadge,
-  UsageBar,
-} from "../../components/atoms";
+import { BillingDashboardButton, ConnectionRow, StatTile, StatusBadge } from "../../components/atoms";
 import { PLACEHOLDER_SUBSCRIPTION_COUNT } from "../../data/billing";
-import { AddSshKeyDialog, CreateSnapshotDialog, EditVpsDialog } from "./VpsDialogs";
+import { AddSshKeyDialog, EditVpsDialog } from "./VpsDialogs";
 
 /* ------------------------------------------------------------------ *
  * VPS instance detail — one full root-access server per subscription,
  * same three-column shape as the Database instance page (Overview,
- * Usage, Connection) plus what's unique to a server: power controls
- * (start/stop/restart), Snapshots, SSH Keys, and a Network card
- * instead of a connection string. Resizing CPU/RAM/Storage is a plan
- * change — handled by the Subscribe flow's "Change Plan" step via the
+ * Connection) plus what's unique to a server: power controls
+ * (start/stop/restart), SSH Keys, and a Network card instead of a
+ * connection string. Resizing CPU/RAM/Storage is a plan change —
+ * handled by the Subscribe flow's "Change Plan" step via the
  * Subscription card's "Upgrade Plan" button — not by anything on this
- * page. The terminal is a real SSH session, so "Open Terminal" opens
- * one in a new tab rather than faking a shell inline; "Monitoring"
- * drills into its own page for the live metrics.
+ * page. Snapshots live on their own sidebar page (across all
+ * instances), same as Database's backups. The web console is a real
+ * SSH session, so "Web Console" opens one in a new tab rather than
+ * faking a shell inline; "Monitoring" drills into its own page for the
+ * live metrics.
  * ------------------------------------------------------------------ */
 
 interface VpsInstance {
@@ -46,12 +40,6 @@ interface VpsInstance {
   region: string;
   resource: { cpu: string; memory: string; storage: string; bandwidth: string };
   network: { publicIp: string; privateIp: string; sshCommand: string };
-}
-
-interface Snapshot {
-  name: string;
-  createdOn: string;
-  size: string;
 }
 
 interface SshKey {
@@ -113,9 +101,7 @@ export function VpsInstanceDetailPage({
   const [running, setRunning] = useState(d.status.label === "Running");
   const [editOpen, setEditOpen] = useState(false);
   const [destroyOpen, setDestroyOpen] = useState(false);
-  const [snapshotOpen, setSnapshotOpen] = useState(false);
   const [addKeyOpen, setAddKeyOpen] = useState(false);
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [sshKeys, setSshKeys] = useState<SshKey[]>([
     { name: "admin-laptop", publicKey: SAMPLE_KEY_FINGERPRINT },
   ]);
@@ -166,7 +152,7 @@ export function VpsInstanceDetailPage({
           </Button>
           <Button variant="outline" onClick={openTerminal} className="h-9 gap-1.5 text-sm">
             <Terminal className="h-3.5 w-3.5" animateOnHover animateOnTap />
-            Open Terminal
+            Web Console
           </Button>
           <Button
             variant="brand"
@@ -190,19 +176,6 @@ export function VpsInstanceDetailPage({
               <StatTile label="vCPU">{d.resource.cpu}</StatTile>
               <StatTile label="Memory">{d.resource.memory}</StatTile>
               <StatTile label="Storage">{d.resource.storage}</StatTile>
-            </div>
-          </Card>
-
-          {/* Usage */}
-          <Card>
-            <div className="flex items-baseline justify-between gap-3">
-              <CardTitle>Usage</CardTitle>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">02 JUL - 02 AUG</p>
-            </div>
-            <div className="mt-4 space-y-4">
-              <UsageBar label="Storage" used={22} total={80} unit="GB" />
-              <UsageBar label="Memory" used={1.8} total={4} unit="GB" />
-              <UsageBar label="Bandwidth" used={0.6} total={4} unit="TB" />
             </div>
           </Card>
 
@@ -271,62 +244,6 @@ export function VpsInstanceDetailPage({
                 <Key className="h-4 w-4 shrink-0 text-zinc-400" animateOnView />
                 <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
                   No SSH keys added yet — password login only until you add one.
-                </p>
-              </div>
-            )}
-          </Card>
-
-          {/* Snapshots — full-disk image, created on demand; restoring a
-              new VPS from one isn't wired here, just the capture step. */}
-          <Card>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle>Snapshots</CardTitle>
-                <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-                  Full-disk images of this server, ready to restore from later.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setSnapshotOpen(true)}
-                className="h-9 shrink-0 gap-1.5 text-sm"
-              >
-                <Camera className="h-4 w-4" animateOnHover animateOnTap />
-                Create Snapshot
-              </Button>
-            </div>
-            {snapshots.length > 0 ? (
-              <div className="mt-4 space-y-2">
-                {snapshots.map((snap, i) => (
-                  <div
-                    key={`${snap.name}-${i}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-800"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        {snap.name}
-                      </p>
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                        {snap.createdOn} · {snap.size}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Remove ${snap.name}`}
-                      onClick={() => setSnapshots((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="h-8 w-8 shrink-0 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" animateOnHover animateOnTap />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-zinc-200 px-3 py-4 dark:border-zinc-800">
-                <Camera className="h-4 w-4 shrink-0 text-zinc-400" animateOnView />
-                <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
-                  No snapshots yet — create one to capture this server's current state.
                 </p>
               </div>
             )}
@@ -404,12 +321,6 @@ export function VpsInstanceDetailPage({
             showFooter={false}
             onUpgrade={onUpgrade}
           />
-
-          <div className="grid grid-cols-2 gap-4">
-            <RadialGauge label="vCPU" value={0.8} max={2} unit="CORE" />
-            <RadialGauge label="RAM" value={1.8} max={4} unit="GB" />
-            <RadialGauge label="Storage" value={24} max={80} unit="GB" />
-          </div>
         </div>
       </div>
 
@@ -420,26 +331,6 @@ export function VpsInstanceDetailPage({
         os={d.os}
         onSave={(next) =>
           setD((prev) => ({ ...prev, hostname: next.hostname, os: next.os }))
-        }
-      />
-
-      <CreateSnapshotDialog
-        open={snapshotOpen}
-        onOpenChange={setSnapshotOpen}
-        instanceName={instanceName}
-        onCreate={(name) =>
-          setSnapshots((prev) => [
-            {
-              name,
-              createdOn: new Date().toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              }),
-              size: `${d.resource.storage}`,
-            },
-            ...prev,
-          ])
         }
       />
 

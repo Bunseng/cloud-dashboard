@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +24,7 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
+  children,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   variant = "default",
@@ -31,6 +34,10 @@ export function ConfirmDialog({
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
+  // Extra content between the description and the footer — e.g. a
+  // summary of exactly what's being confirmed (Restore's File Name/
+  // Date/Size block), when a plain description string isn't enough.
+  children?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "default" | "destructive";
@@ -43,6 +50,7 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction variant={variant} onClick={onConfirm}>

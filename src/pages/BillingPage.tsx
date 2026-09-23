@@ -7,6 +7,7 @@ import { ListFilter } from "@/components/animate-ui/icons/list-filter";
 import { Receipt } from "@/components/animate-ui/icons/receipt";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Select,
   SelectContent,
@@ -38,12 +39,14 @@ import {
   INVOICE_RECORDS,
   WALLET_TABS,
   type BillingCategoryKey,
+  type BillingRecord,
 } from "../data/billing";
 import { useFirstUser } from "../firstusersrc/FirstUserContext";
 
 const STATUS_FILTERS = [
   { key: "all", label: "All Status" },
   { key: "Active", label: "Active" },
+  { key: "Schedule cancel", label: "Schedule cancel" },
   { key: "Paused", label: "Paused" },
 ] as const;
 type StatusFilterKey = (typeof STATUS_FILTERS)[number]["key"];
@@ -147,7 +150,15 @@ function SubscriptionTab() {
   // bill for yet — so the whole tab reads off an empty list instead of
   // the placeholder BILLING_RECORDS.
   const { isFirstUser } = useFirstUser();
-  const records = isFirstUser ? [] : BILLING_RECORDS;
+  // Cancel/Resume are the only actions that ever change a subscription's
+  // status, so only that override needs to live in state — everything
+  // else still reads straight from BILLING_RECORDS.
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, BillingRecord["status"]>>({});
+  const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+  const records = (isFirstUser ? [] : BILLING_RECORDS).map((r) =>
+    statusOverrides[r.id] ? { ...r, status: statusOverrides[r.id] } : r
+  );
+  const cancelTarget = records.find((r) => r.id === cancelTargetId) ?? null;
 
   const categoryLabel = (key: BillingCategoryKey) =>
     BILLING_CATEGORIES.find((c) => c.key === key)?.label ?? key;
@@ -252,6 +263,9 @@ function SubscriptionTab() {
               <TableHead className="whitespace-nowrap text-zinc-500 dark:text-zinc-400">
                 Renews On
               </TableHead>
+              <TableHead className="w-px text-right text-zinc-500 dark:text-zinc-400">
+                <span className="sr-only sm:not-sr-only">Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -259,6 +273,7 @@ function SubscriptionTab() {
               filtered.map((r) => {
                 const cat = BILLING_CATEGORIES.find((c) => c.key === r.category);
                 const counted = r.status.label === "Active";
+                const isScheduledCancel = r.status.label === "Schedule cancel";
                 return (
                   <TableRow key={r.id} className={counted ? "" : "opacity-50"}>
                     <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">
@@ -291,12 +306,37 @@ function SubscriptionTab() {
                     <TableCell className="whitespace-nowrap text-zinc-600 dark:text-zinc-400">
                       {r.renewsOn}
                     </TableCell>
+                    <TableCell className="text-right">
+                      {r.status.label === "Active" && (
+                        <Button
+                          variant="outline"
+                          onClick={() => setCancelTargetId(r.id)}
+                          className="h-8 px-3 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40"
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                      {isScheduledCancel && (
+                        <Button
+                          variant="brand"
+                          onClick={() =>
+                            setStatusOverrides((prev) => ({
+                              ...prev,
+                              [r.id]: { label: "Active", tone: "green" },
+                            }))
+                          }
+                          className="h-8 px-3 text-xs"
+                        >
+                          Resume
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })
             ) : (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={5} className="p-0">
+                <TableCell colSpan={6} className="p-0">
                   <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
                     <Receipt
                       className="mb-3 h-10 w-10 text-zinc-300 dark:text-zinc-700"
@@ -322,6 +362,22 @@ function SubscriptionTab() {
       <div className="mt-5">
         <PaginationFooter total={filtered.length} />
       </div>
+
+      <ConfirmDialog
+        open={cancelTargetId != null}
+        onOpenChange={(open) => !open && setCancelTargetId(null)}
+        title={cancelTarget ? `Cancel ${cancelTarget.name}?` : "Cancel subscription?"}
+        description="It stays active until the current period ends on its Renews On date, then won't renew. You can resume any time before then."
+        confirmLabel="Cancel Subscription"
+        variant="destructive"
+        onConfirm={() => {
+          if (!cancelTargetId) return;
+          setStatusOverrides((prev) => ({
+            ...prev,
+            [cancelTargetId]: { label: "Schedule cancel", tone: "amber" },
+          }));
+        }}
+      />
     </div>
   );
 }

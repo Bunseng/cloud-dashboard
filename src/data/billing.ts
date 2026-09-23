@@ -29,7 +29,7 @@ export interface BillingCategory {
 
 export type BillingCurrency = "KHR" | "BG";
 
-export type BillingStatusTone = "green" | "zinc";
+export type BillingStatusTone = "green" | "zinc" | "amber";
 
 export interface BillingStatus {
   label: string;

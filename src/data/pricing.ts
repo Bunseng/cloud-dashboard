@@ -32,6 +32,7 @@ export type PricingServiceKey =
   | "transcoder"
   | "runapp"
   | "database"
+  | "databaseBackup"
   | "vps"
   | "cms";
 
@@ -328,6 +329,57 @@ export const SERVICE_PRICING: ServicePricing = {
         ["RAM", "64 GB"],
         ["Storage", "200 GB"],
         ["Cluster Charge", "1,520,000 KHR"],
+      ],
+    },
+  ],
+  /* Automated backups for a Database instance — its own add-on
+     subscription (not a Database tier), so it isn't listed on
+     Planning/Public Pricing alongside the real services; only the
+     Database → Backups page and its Subscribe flow read from this. */
+  databaseBackup: [
+    {
+      id: "basic",
+      name: "Basic",
+      priceKHR: 18810,
+      period: "mo",
+      description: "Automatically saves your database for maximum protection.",
+      specs: [
+        ["Backup Frequency", "Once-Daily"],
+        ["Retention", "7 Days"],
+      ],
+    },
+    {
+      id: "standard",
+      name: "Standard",
+      priceKHR: 75900,
+      period: "mo",
+      description: "Automatically saves your database for maximum protection.",
+      specs: [
+        ["Backup Frequency", "Every 1 Hour"],
+        ["Retention", "30 Days"],
+      ],
+    },
+    {
+      id: "premium",
+      name: "Premium",
+      priceKHR: 133100,
+      period: "mo",
+      popular: true,
+      description: "Automatically saves your database for maximum protection.",
+      specs: [
+        ["Backup Frequency", "Every 1 Hour"],
+        ["Retention", "365 Days"],
+      ],
+    },
+    {
+      id: "enterprise",
+      name: "Enterprise",
+      priceKHR: 311300,
+      period: "mo",
+      description: "Automatically saves your database for maximum protection.",
+      specs: [
+        ["Backup Frequency", "Every 1 Hour"],
+        ["Retention", "99999 Days"],
       ],
     },
   ],
