@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 import { PLACEHOLDER_SUBSCRIPTION_COUNT } from "../data/billing";
+import { formatScheduleDate, type ScheduledPlanChange } from "../context/PlanScheduleContext";
 import { formatPlanPrice, getTierTheme, type DisplayCurrency, type PricingServiceKey } from "../data/pricing";
 import { SubscribeVerifyDialog } from "../firstusersrc/SubscribeVerifyDialog";
 import { useVerifyBeforeSubscribe } from "../firstusersrc/useVerifyBeforeSubscribe";
@@ -186,6 +187,8 @@ export function ServicePlanCard({
   showFooter = true,
   footerLabel,
   planName = "Free",
+  scheduledUpgrade,
+  onCancelSchedule,
 }: {
   title?: string;
   resourceLabel?: string;
@@ -195,6 +198,10 @@ export function ServicePlanCard({
   showFooter?: boolean;
   footerLabel?: ReactNode;
   planName?: string;
+  // Set once this subscription has an "Upgrade Plan" schedule pending —
+  // shown as a banner instead of applying the change immediately.
+  scheduledUpgrade?: ScheduledPlanChange | null;
+  onCancelSchedule?: () => void;
 }) {
   const clickable = Boolean(onSelect);
   const theme = getTierTheme(planName);
@@ -243,6 +250,27 @@ export function ServicePlanCard({
           </div>
         ))}
       </dl>
+
+      {scheduledUpgrade && (
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+          <span>
+            Upgrading to <span className="font-semibold">{scheduledUpgrade.tierName}</span> on{" "}
+            {formatScheduleDate(scheduledUpgrade.date)}
+          </span>
+          {onCancelSchedule && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancelSchedule();
+              }}
+              className="shrink-0 font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
 
       {showFooter && (
         <>
@@ -342,6 +370,8 @@ export function MultiSubscriptionView({
   onSelectSubscription,
   onNewSubscription,
   onUpgrade,
+  getScheduledUpgrade,
+  onCancelSchedule,
   description,
   footerLabel,
   planName = "Free",
@@ -351,6 +381,8 @@ export function MultiSubscriptionView({
   onSelectSubscription?: (index: number) => void;
   onNewSubscription?: () => void;
   onUpgrade?: (index: number) => void;
+  getScheduledUpgrade?: (index: number) => ScheduledPlanChange | null | undefined;
+  onCancelSchedule?: (index: number) => void;
   description?: ReactNode;
   footerLabel?: ReactNode;
   planName?: string;
@@ -400,6 +432,8 @@ export function MultiSubscriptionView({
                 : undefined
             }
             onUpgrade={onUpgrade ? () => onUpgrade(i + 1) : undefined}
+            scheduledUpgrade={getScheduledUpgrade ? getScheduledUpgrade(i + 1) : undefined}
+            onCancelSchedule={onCancelSchedule ? () => onCancelSchedule(i + 1) : undefined}
           />
         ))}
       </div>

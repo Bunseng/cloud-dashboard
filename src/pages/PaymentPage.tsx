@@ -1,32 +1,59 @@
 import { useState } from "react";
 import { ArrowUpRight } from "@/components/animate-ui/icons/arrow-up-right";
+import { Coins } from "@/components/animate-ui/icons/coins";
 import { Download } from "@/components/animate-ui/icons/download";
 import { Gem } from "@/components/animate-ui/icons/gem";
 import { Plus } from "@/components/animate-ui/icons/plus";
 import { Receipt } from "@/components/animate-ui/icons/receipt";
 import { ShieldCheck } from "@/components/animate-ui/icons/shield-check";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 import { AddCardDialog } from "../components/PaymentFlow";
 import { PaymentCardVisual } from "../components/PaymentCard";
+import { useAccountBalance } from "../context/AccountBalanceContext";
 import { BILLING_CATEGORIES, INVOICE_RECORDS } from "../data/billing";
 import { addSavedCard, removeSavedCard, SAVED_CARDS, type SavedCard } from "../data/paymentMethods";
 
 /* ------------------------------------------------------------------ *
- * Payment — formerly "Wallet". No KHR balance number/card here (or
- * anywhere outside a plan's own price) — every payment is made
- * directly, per top-up/subscription, by scanning ABA Mobile/KHQR or
- * paying with a saved card, so there's no persistent KHR figure to
- * show. What's left: Business Gold, reframed as the bonus/gift
- * currency it actually is (earned, not purchased) — and a real
- * Payment Methods section (saved cards), "your idea for better UX/UI"
- * per the redesign ask, so this page is about *how* you pay, not a
- * number that duplicated the Topbar.
+ * Payment — formerly "Wallet". Both balances now live here too (not
+ * just the Topbar pill) — Cancelling/Resuming a subscription on Billing
+ * Subscription reloads/takes back its amount, so this page shows the
+ * same live numbers rather than a frozen constant or no number at all.
+ * What's here: KHR, and Business Gold reframed as the bonus/gift
+ * currency it actually is (earned, not purchased) — plus a real Payment
+ * Methods section (saved cards), "your idea for better UX/UI" per the
+ * redesign ask, so this page is about *how* you pay, not just numbers.
  * ------------------------------------------------------------------ */
 
-function BonusHeroCard() {
+function KHRBalanceCard({ khr, onTopUp }: { khr: number; onTopUp: () => void }) {
+  return (
+    <Card className="flex flex-col justify-between">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-50 dark:bg-amber-500/10">
+            <Coins className="h-4.5 w-4.5 text-amber-500" animateOnView />
+          </div>
+          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">KHR Balance</p>
+        </div>
+        <Button variant="brand" onClick={onTopUp} className="h-8 shrink-0 px-3 text-xs">
+          Top Up
+        </Button>
+      </div>
+      <p className="mt-5 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+        {khr.toLocaleString()} <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">KHR</span>
+      </p>
+      <p className="mt-3 max-w-[420px] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+        Your real-money balance — top it up any time by scanning ABA Mobile/KHQR or
+        paying with a saved card, then spend it on subscriptions and Top Up alike.
+      </p>
+    </Card>
+  );
+}
+
+function BonusHeroCard({ bg }: { bg: number }) {
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1C75BC] to-indigo-700 p-6 text-white shadow-sm">
       {/* Decorative glow — purely visual, clipped by the card's own
@@ -41,7 +68,11 @@ function BonusHeroCard() {
         <p className="text-sm font-medium text-white/90">Business Gold (BG)</p>
       </div>
 
-      <p className="relative mt-5 max-w-[420px] text-sm leading-relaxed text-white/85">
+      <p className="relative mt-5 text-2xl font-bold text-white">
+        {bg.toLocaleString()} <span className="text-sm font-medium text-white/70">BG</span>
+      </p>
+
+      <p className="relative mt-3 max-w-[420px] text-sm leading-relaxed text-white/85">
         A bonus currency, not something you buy — earned as a gift for topping
         up, referrals, and promotions, and spendable on some subscriptions
         alongside KHR.
@@ -119,8 +150,10 @@ function PaymentMethodsSection({
 
 export function PaymentPage({
   onViewBilling,
+  onTopUp,
 }: {
   onViewBilling: () => void;
+  onTopUp: () => void;
 }) {
   // A short, real preview of recent activity (not a fabricated feed) —
   // the same invoice records Billing Subscription's Invoice tab lists,
@@ -132,6 +165,7 @@ export function PaymentPage({
   // shows up wherever it's read next.
   const [cards, setCards] = useState<SavedCard[]>(() => [...SAVED_CARDS]);
   const [addCardOpen, setAddCardOpen] = useState(false);
+  const { khr, bg } = useAccountBalance();
 
   return (
     <div>
@@ -146,8 +180,9 @@ export function PaymentPage({
         </div>
       </div>
 
-      <div className="mt-6">
-        <BonusHeroCard />
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <KHRBalanceCard khr={khr} onTopUp={onTopUp} />
+        <BonusHeroCard bg={bg} />
       </div>
 
       <Card className="mt-5">

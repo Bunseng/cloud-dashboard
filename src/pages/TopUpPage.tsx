@@ -17,6 +17,7 @@ import {
   resolvePaymentSelection,
   type PaymentSelection,
 } from "../components/PaymentFlow";
+import { useAccountBalance } from "../context/AccountBalanceContext";
 import { addSavedCard, SAVED_CARDS, type SavedCard } from "../data/paymentMethods";
 
 /* ------------------------------------------------------------------ *
@@ -209,6 +210,7 @@ export function TopUpPage({ onDone }: { onDone: () => void }) {
   // Wallet's own Payment Methods section) so a card added earlier in
   // Wallet already shows up here as a "no scan needed" choice.
   const [cards, setCards] = useState<SavedCard[]>(() => [...SAVED_CARDS]);
+  const { creditKHR } = useAccountBalance();
 
   const numericAmount = amount ?? 0;
   const resolvedSelection = resolvePaymentSelection(method, cards);
@@ -249,6 +251,7 @@ export function TopUpPage({ onDone }: { onDone: () => void }) {
         onSuccess={() => {
           setPayOpen(false);
           setStep("success");
+          creditKHR(numericAmount);
         }}
       />
 

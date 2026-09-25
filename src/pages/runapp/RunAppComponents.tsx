@@ -13,6 +13,7 @@ import {
   RadialGauge,
   StatusBadge,
 } from "../../components/atoms";
+import type { ScheduledPlanChange } from "../../context/PlanScheduleContext";
 import { CreateServiceDrawer, type NewServiceFields } from "./RunAppDialogs";
 
 /* ------------------------------------------------------------------ *
@@ -228,8 +229,12 @@ export const SERVICE_COLUMNS: Array<{
    list page one level up, not inside a subscription's own stack list. */
 export function RunAppSubscriptionPanel({
   onUpgrade,
+  scheduledUpgrade,
+  onCancelSchedule,
 }: {
   onUpgrade?: () => void;
+  scheduledUpgrade?: ScheduledPlanChange | null;
+  onCancelSchedule?: () => void;
 }) {
   return (
     <div className="w-[320px] shrink-0 space-y-5">
@@ -239,7 +244,14 @@ export function RunAppSubscriptionPanel({
       </div>
       <p className="-mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">02 JUL - 02 AUG</p>
 
-      <ServicePlanCard planName="Basic" stats={RUNAPP_PLAN_STATS} showFooter={false} onUpgrade={onUpgrade} />
+      <ServicePlanCard
+        planName="Basic"
+        stats={RUNAPP_PLAN_STATS}
+        showFooter={false}
+        onUpgrade={onUpgrade}
+        scheduledUpgrade={scheduledUpgrade}
+        onCancelSchedule={onCancelSchedule}
+      />
 
       <div className="grid grid-cols-2 gap-4">
         <RadialGauge label="CPU" value={0.5} max={1} unit="CORE" />
@@ -266,6 +278,8 @@ export function StackListPage({
   onBack,
   onViewStack,
   onUpgrade,
+  scheduledUpgrade,
+  onCancelSchedule,
   onCreateStack,
   onEditStack,
   createdStack,
@@ -275,6 +289,8 @@ export function StackListPage({
   onBack: () => void;
   onViewStack: (stackName: string) => void;
   onUpgrade?: () => void;
+  scheduledUpgrade?: ScheduledPlanChange | null;
+  onCancelSchedule?: () => void;
   onCreateStack: () => void;
   // Edit opens the same full-page Create Run App flow a new stack uses
   // (mode="edit"), not a bare rename dialog, so a stack's fields always
@@ -369,7 +385,11 @@ export function StackListPage({
             }}
           />
         </div>
-        <RunAppSubscriptionPanel onUpgrade={onUpgrade} />
+        <RunAppSubscriptionPanel
+          onUpgrade={onUpgrade}
+          scheduledUpgrade={scheduledUpgrade}
+          onCancelSchedule={onCancelSchedule}
+        />
       </div>
     </div>
   );

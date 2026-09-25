@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 import { ServicePlanCard } from "../../components/PlanCards";
 import { BillingDashboardButton, ConnectionRow, StatTile, StatusBadge } from "../../components/atoms";
+import type { ScheduledPlanChange } from "../../context/PlanScheduleContext";
 import { PLACEHOLDER_SUBSCRIPTION_COUNT } from "../../data/billing";
 import { AddSshKeyDialog, EditVpsDialog } from "./VpsDialogs";
 
@@ -81,11 +82,15 @@ export function VpsInstanceDetailPage({
   onUpgrade,
   onMonitoring,
   overrides,
+  scheduledUpgrade,
+  onCancelSchedule,
 }: {
   instanceName: string;
   onBack: () => void;
   onUpgrade?: () => void;
   onMonitoring?: () => void;
+  scheduledUpgrade?: ScheduledPlanChange | null;
+  onCancelSchedule?: () => void;
   // Freshly provisioned via CreateVpsPage — its hostname/OS/region win
   // over the sample template so the just-filled-in form actually shows
   // up on the instance it created.
@@ -320,6 +325,8 @@ export function VpsInstanceDetailPage({
             stats={VPS_PLAN_STATS}
             showFooter={false}
             onUpgrade={onUpgrade}
+            scheduledUpgrade={scheduledUpgrade}
+            onCancelSchedule={onCancelSchedule}
           />
         </div>
       </div>

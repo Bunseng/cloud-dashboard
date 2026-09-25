@@ -16,6 +16,7 @@ import {
 
 import { ServicePlanCard } from "../../components/PlanCards";
 import { StatusBadge } from "../../components/atoms";
+import { usePlanSchedule } from "../../context/PlanScheduleContext";
 import { SERVICE_PRICING } from "../../data/pricing";
 import { EmptyState } from "../../firstusersrc/EmptyState";
 import {
@@ -51,7 +52,9 @@ export function DatabaseInstanceBackupsPage({
 }) {
   const navigate = useNavigate();
   const { isSubscribed, getTierId, backups, setBackupStatus, addHistoryEntry } = useDatabaseBackup();
+  const { getSchedule, cancelSchedule } = usePlanSchedule();
   const subscribed = isSubscribed(instanceName);
+  const scheduleKey = `databaseBackup:${instanceName}`;
   const [restoreTarget, setRestoreTarget] = useState<Backup | null>(null);
   const [historyTarget, setHistoryTarget] = useState<Backup | null>(null);
   const tierId = getTierId(instanceName);
@@ -176,6 +179,8 @@ export function DatabaseInstanceBackupsPage({
                 `/subscribe/databaseBackup/${tierId ?? "basic"}?upgrade=1&return=${encodeURIComponent(returnTo)}&instance=${encodeURIComponent(instanceName)}`
               )
             }
+            scheduledUpgrade={getSchedule(scheduleKey)}
+            onCancelSchedule={() => cancelSchedule(scheduleKey)}
           />
         </div>
       </div>

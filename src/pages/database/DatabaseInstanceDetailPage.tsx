@@ -18,6 +18,7 @@ import {
   StatusBadge,
   UsageBar,
 } from "../../components/atoms";
+import type { ScheduledPlanChange } from "../../context/PlanScheduleContext";
 import { PLACEHOLDER_SUBSCRIPTION_COUNT } from "../../data/billing";
 import { SERVICE_PRICING } from "../../data/pricing";
 import { useDatabaseBackup } from "./DatabaseBackupContext";
@@ -76,11 +77,15 @@ export function DatabaseInstanceDetailPage({
   onBack,
   onUpgrade,
   onOpenBackups,
+  scheduledUpgrade,
+  onCancelSchedule,
 }: {
   instanceName: string;
   onBack: () => void;
   onUpgrade?: () => void;
   onOpenBackups: () => void;
+  scheduledUpgrade?: ScheduledPlanChange | null;
+  onCancelSchedule?: () => void;
 }) {
   const base = DATABASE_INSTANCES[instanceName] ?? {
     ...DATABASE_INSTANCE_TEMPLATE,
@@ -322,6 +327,8 @@ export function DatabaseInstanceDetailPage({
             stats={DATABASE_PLAN_STATS}
             showFooter={false}
             onUpgrade={onUpgrade}
+            scheduledUpgrade={scheduledUpgrade}
+            onCancelSchedule={onCancelSchedule}
           />
 
           <div className="grid grid-cols-2 gap-4">

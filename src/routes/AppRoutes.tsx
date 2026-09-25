@@ -24,6 +24,7 @@ import { useFirstUser } from "../firstusersrc/FirstUserContext";
 import { useSubscribeNavigate } from "../firstusersrc/useSubscribeNavigate";
 import { FEATURES } from "../data/nav";
 import { PLACEHOLDER_SUBSCRIPTION_COUNT, WALLET_TABS } from "../data/billing";
+import { usePlanSchedule } from "../context/PlanScheduleContext";
 
 import { HomePage } from "../pages/HomePage";
 import { PlanningPage } from "../pages/PlanningPage";
@@ -34,7 +35,7 @@ import { TopUpPage } from "../pages/TopUpPage";
 import { SubscribePage } from "../pages/SubscribePage";
 import { LogOutPage } from "../pages/LogOutPage";
 import { PublicPricingPage } from "../pages/PublicPricingPage";
-import { PRICING_CATEGORIES, type PricingCategory, type PricingServiceKey } from "../data/pricing";
+import { PRICING_CATEGORIES, SERVICE_PRICING, type PricingCategory, type PricingServiceKey } from "../data/pricing";
 
 // Database Backup isn't a real service tab (not in PRICING_CATEGORIES),
 // so its icon is typed the same loose way PricingCategory.icon is —
@@ -104,6 +105,10 @@ import { PlansPage as MediaPlansPage } from "../pages/media/PlansPage";
  * those components needed to know routing exists.
  * ------------------------------------------------------------------ */
 
+function tierNameFor(categoryKey: PricingServiceKey, tierId: string): string {
+  return SERVICE_PRICING[categoryKey].find((t) => t.id === tierId)?.name ?? tierId;
+}
+
 function HomeRoute() {
   const navigate = useNavigate();
   return (
@@ -120,6 +125,17 @@ function DashboardRoute() {
   const dashboardTab = FEATURES.some((f) => f.id === tab) ? tab : FEATURES[0].id;
   const { isFirstUser } = useFirstUser();
   const subscribeNavigate = useSubscribeNavigate();
+  const { getSchedule, cancelSchedule } = usePlanSchedule();
+
+  // Instance names differ per category (Database/VPS name theirs;
+  // Run App just uses the subscription number) — this is the one place
+  // that mapping is needed, to key each tab's per-card schedule.
+  const instanceNameFor = (featureId: string, n: number) =>
+    featureId === "database"
+      ? `DB Instance ${n}`
+      : featureId === "vps"
+      ? `VPS Instance ${n}`
+      : String(n);
 
   return (
     <>
@@ -175,10 +191,14 @@ function DashboardRoute() {
                   }
                 }}
                 onNewSubscription={() => navigate("/planning")}
-                onUpgrade={() => {
+                onUpgrade={(n: number) => {
                   const currentTierId = f.id === "database" || f.id === "vps" ? "standard" : "basic";
-                  navigate(`/subscribe/${f.id}/${currentTierId}?upgrade=1`);
+                  navigate(
+                    `/subscribe/${f.id}/${currentTierId}?upgrade=1&instance=${encodeURIComponent(instanceNameFor(f.id, n))}`
+                  );
                 }}
+                getScheduledUpgrade={(n: number) => getSchedule(`${f.id}:${instanceNameFor(f.id, n)}`)}
+                onCancelSchedule={(n: number) => cancelSchedule(`${f.id}:${instanceNameFor(f.id, n)}`)}
               />
             ) : (
               <SubscriptionPlanView
@@ -208,7 +228,7 @@ function BillingRoute() {
 function PaymentRoute() {
   const navigate = useNavigate();
   return (
-    <PaymentPage onViewBilling={() => navigate("/billing")} />
+    <PaymentPage onViewBilling={() => navigate("/billing")} onTopUp={() => navigate("/topup")} />
   );
 }
 
@@ -226,6 +246,7 @@ function SubscribeRoute() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { subscribe, addBackup } = useDatabaseBackup();
+  const { schedule, cancelSchedule } = usePlanSchedule();
 
   // Database Backup is its own add-on subscription, not one of the real
   // services listed on Planning/Public Pricing — same Plan → Payment →
@@ -248,23 +269,36 @@ function SubscribeRoute() {
         icon={DATABASE_BACKUP_ICON}
         initialTierId={tierId ?? "basic"}
         mode={isBackupUpgrade ? "upgrade" : "new"}
-        onDone={(purchasedTierId) => {
+        onDone={(purchasedTierId, scheduledDate) => {
           if (instanceForBackup) {
-            subscribe(instanceForBackup, purchasedTierId);
-            // Upgrading an existing plan changes the tier only — it
-            // doesn't produce a fresh backup the way first subscribing
-            // does.
-            if (!isBackupUpgrade) {
-              addBackup({
-                name: `${instanceForBackup}-backup`,
-                instanceName: instanceForBackup,
-                size: DATABASE_INSTANCES[instanceForBackup]?.resource.storage ?? "60 GB",
-                createdOn: new Date().toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                }),
+            const key = `databaseBackup:${instanceForBackup}`;
+            if (scheduledDate) {
+              // Scheduled — leave the current plan (if any) running as-is
+              // and just record when it'll change; nothing to subscribe/
+              // backup yet.
+              schedule(key, {
+                tierId: purchasedTierId,
+                tierName: tierNameFor("databaseBackup", purchasedTierId),
+                date: scheduledDate,
               });
+            } else {
+              cancelSchedule(key);
+              subscribe(instanceForBackup, purchasedTierId);
+              // Upgrading an existing plan changes the tier only — it
+              // doesn't produce a fresh backup the way first subscribing
+              // does.
+              if (!isBackupUpgrade) {
+                addBackup({
+                  name: `${instanceForBackup}-backup`,
+                  instanceName: instanceForBackup,
+                  size: DATABASE_INSTANCES[instanceForBackup]?.resource.storage ?? "60 GB",
+                  createdOn: new Date().toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  }),
+                });
+              }
             }
           }
           navigate(returnTo);
@@ -276,6 +310,11 @@ function SubscribeRoute() {
 
   const cat =
     PRICING_CATEGORIES.find((c) => c.key === category) ?? PRICING_CATEGORIES[0];
+  // Scoped to one instance (Database/VPS/Run App detail rail) when
+  // present, otherwise the category's own single/summary subscription
+  // (Storage, or a category-level "Upgrade Plan").
+  const instanceForUpgrade = searchParams.get("instance");
+  const scheduleKey = instanceForUpgrade ? `${cat.key}:${instanceForUpgrade}` : cat.key;
 
   return (
     <SubscribePage
@@ -284,9 +323,18 @@ function SubscribeRoute() {
       icon={cat.icon}
       initialTierId={tierId ?? ""}
       mode={searchParams.get("upgrade") ? "upgrade" : "new"}
-      onDone={() =>
-        navigate(FEATURES.some((f) => f.id === cat.key) ? `/dashboard/${cat.key}` : "/planning")
-      }
+      onDone={(purchasedTierId, scheduledDate) => {
+        if (scheduledDate) {
+          schedule(scheduleKey, {
+            tierId: purchasedTierId,
+            tierName: tierNameFor(cat.key as PricingServiceKey, purchasedTierId),
+            date: scheduledDate,
+          });
+        } else {
+          cancelSchedule(scheduleKey);
+        }
+        navigate(FEATURES.some((f) => f.id === cat.key) ? `/dashboard/${cat.key}` : "/planning");
+      }}
       onCancel={() => navigate(-1)}
     />
   );
@@ -300,6 +348,7 @@ function StorageRoute() {
   const [createBucketOpen, setCreateBucketOpen] = useState(false);
   const { isFirstUser } = useFirstUser();
   const subscribeNavigate = useSubscribeNavigate();
+  const { getSchedule, cancelSchedule } = usePlanSchedule();
 
   return (
     <>
@@ -335,7 +384,11 @@ function StorageRoute() {
                 onViewBucket={(name: string) => navigate(`/storage/${encodeURIComponent(name)}`)}
               />
             </div>
-            <StorageUsagePanel onUpgrade={() => navigate("/subscribe/storage/free?upgrade=1")} />
+            <StorageUsagePanel
+              onUpgrade={() => navigate("/subscribe/storage/free?upgrade=1")}
+              scheduledUpgrade={getSchedule("storage")}
+              onCancelSchedule={() => cancelSchedule("storage")}
+            />
           </div>
         )}
       </div>
@@ -360,6 +413,7 @@ function RunAppRoute() {
   const navigate = useNavigate();
   const { isFirstUser } = useFirstUser();
   const subscribeNavigate = useSubscribeNavigate();
+  const { getSchedule, cancelSchedule } = usePlanSchedule();
   return (
     <>
       <h1 className="text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
@@ -383,7 +437,11 @@ function RunAppRoute() {
             stats={RUNAPP_PLAN_STATS}
             onSelectSubscription={(n: number) => navigate(`/runapp/${n}`)}
             onNewSubscription={() => navigate("/planning")}
-            onUpgrade={() => navigate("/subscribe/runapp/basic?upgrade=1")}
+            onUpgrade={(n: number) =>
+              navigate(`/subscribe/runapp/basic?upgrade=1&instance=${n}`)
+            }
+            getScheduledUpgrade={(n: number) => getSchedule(`runapp:${n}`)}
+            onCancelSchedule={(n: number) => cancelSchedule(`runapp:${n}`)}
           />
         )}
       </div>
@@ -395,6 +453,7 @@ function StackListRoute() {
   const { subNumber } = useParams<{ subNumber: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { getSchedule, cancelSchedule } = usePlanSchedule();
   // A stack just created or renamed on the full-page Create/Edit Run
   // App flow arrives via router state (see CreateRunAppRoute /
   // EditRunAppRoute) since this list has no shared store of its own.
@@ -410,7 +469,9 @@ function StackListRoute() {
       onViewStack={(stackName: string) =>
         navigate(`/runapp/${subNumber}/${encodeURIComponent(stackName)}`)
       }
-      onUpgrade={() => navigate("/subscribe/runapp/basic?upgrade=1")}
+      onUpgrade={() => navigate(`/subscribe/runapp/basic?upgrade=1&instance=${subNumber}`)}
+      scheduledUpgrade={getSchedule(`runapp:${subNumber}`)}
+      onCancelSchedule={() => cancelSchedule(`runapp:${subNumber}`)}
       onCreateStack={() => navigate(`/runapp/${subNumber}/create`)}
       onEditStack={(stackName: string) =>
         navigate(`/runapp/${subNumber}/${encodeURIComponent(stackName)}/edit`)
@@ -504,6 +565,7 @@ function DatabaseRoute() {
   const navigate = useNavigate();
   const { isFirstUser } = useFirstUser();
   const subscribeNavigate = useSubscribeNavigate();
+  const { getSchedule, cancelSchedule } = usePlanSchedule();
   return (
     <>
       <h1 className="text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
@@ -529,7 +591,13 @@ function DatabaseRoute() {
               navigate(`/database/${encodeURIComponent(`DB Instance ${n}`)}`)
             }
             onNewSubscription={() => navigate("/planning")}
-            onUpgrade={() => navigate("/subscribe/database/standard?upgrade=1")}
+            onUpgrade={(n: number) =>
+              navigate(
+                `/subscribe/database/standard?upgrade=1&instance=${encodeURIComponent(`DB Instance ${n}`)}`
+              )
+            }
+            getScheduledUpgrade={(n: number) => getSchedule(`database:DB Instance ${n}`)}
+            onCancelSchedule={(n: number) => cancelSchedule(`database:DB Instance ${n}`)}
           />
         )}
       </div>
@@ -541,12 +609,18 @@ function DatabaseInstanceRoute() {
   const { instanceName } = useParams<{ instanceName: string }>();
   const navigate = useNavigate();
   const decodedName = decodeURIComponent(instanceName ?? "");
+  const { getSchedule, cancelSchedule } = usePlanSchedule();
+  const scheduleKey = `database:${decodedName}`;
   return (
     <DatabaseInstanceDetailPage
       instanceName={decodedName}
       onBack={() => navigate("/database")}
-      onUpgrade={() => navigate("/subscribe/database/standard?upgrade=1")}
+      onUpgrade={() =>
+        navigate(`/subscribe/database/standard?upgrade=1&instance=${encodeURIComponent(decodedName)}`)
+      }
       onOpenBackups={() => navigate(`/database/${encodeURIComponent(decodedName)}/backups`)}
+      scheduledUpgrade={getSchedule(scheduleKey)}
+      onCancelSchedule={() => cancelSchedule(scheduleKey)}
     />
   );
 }
@@ -567,6 +641,7 @@ function VpsRoute() {
   const navigate = useNavigate();
   const { isFirstUser } = useFirstUser();
   const subscribeNavigate = useSubscribeNavigate();
+  const { getSchedule, cancelSchedule } = usePlanSchedule();
   return (
     <>
       <h1 className="text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
@@ -592,7 +667,13 @@ function VpsRoute() {
               navigate(`/vps/${encodeURIComponent(`VPS Instance ${n}`)}`)
             }
             onNewSubscription={() => navigate("/planning")}
-            onUpgrade={() => navigate("/subscribe/vps/standard?upgrade=1")}
+            onUpgrade={(n: number) =>
+              navigate(
+                `/subscribe/vps/standard?upgrade=1&instance=${encodeURIComponent(`VPS Instance ${n}`)}`
+              )
+            }
+            getScheduledUpgrade={(n: number) => getSchedule(`vps:VPS Instance ${n}`)}
+            onCancelSchedule={(n: number) => cancelSchedule(`vps:VPS Instance ${n}`)}
           />
         )}
       </div>
@@ -615,6 +696,8 @@ function VpsInstanceRoute() {
   const { instanceName } = useParams<{ instanceName: string }>();
   const navigate = useNavigate();
   const decodedName = decodeURIComponent(instanceName ?? "");
+  const { getSchedule, cancelSchedule } = usePlanSchedule();
+  const scheduleKey = `vps:${decodedName}`;
   const [provisioned, setProvisioned] = useState<VpsCreateResult | null>(
     () => VPS_PROVISIONED[decodedName] ?? null
   );
@@ -636,9 +719,13 @@ function VpsInstanceRoute() {
     <VpsInstanceDetailPage
       instanceName={decodedName}
       onBack={() => navigate("/vps")}
-      onUpgrade={() => navigate("/subscribe/vps/standard?upgrade=1")}
+      onUpgrade={() =>
+        navigate(`/subscribe/vps/standard?upgrade=1&instance=${encodeURIComponent(decodedName)}`)
+      }
       onMonitoring={() => navigate(`/vps/${encodeURIComponent(decodedName)}/monitoring`)}
       overrides={provisioned ?? undefined}
+      scheduledUpgrade={getSchedule(scheduleKey)}
+      onCancelSchedule={() => cancelSchedule(scheduleKey)}
     />
   );
 }

@@ -20,6 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { ServicePlanCard } from "../../components/PlanCards";
+import type { ScheduledPlanChange } from "../../context/PlanScheduleContext";
 import { UserManagementTable } from "./UserManagement";
 import {
   BillingDashboardButton,
@@ -49,7 +50,15 @@ export const STORAGE_PLAN_STATS = [
   ["Buckets", "1"],
 ];
 
-export function StorageUsagePanel({ onUpgrade }: { onUpgrade?: () => void }) {
+export function StorageUsagePanel({
+  onUpgrade,
+  scheduledUpgrade,
+  onCancelSchedule,
+}: {
+  onUpgrade?: () => void;
+  scheduledUpgrade?: ScheduledPlanChange | null;
+  onCancelSchedule?: () => void;
+}) {
   return (
     <div className="w-[320px] shrink-0 space-y-5">
       <div className="flex items-center justify-between gap-2">
@@ -58,7 +67,14 @@ export function StorageUsagePanel({ onUpgrade }: { onUpgrade?: () => void }) {
       </div>
       <p className="-mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">02 JUL - 02 AUG</p>
 
-      <ServicePlanCard planName="Free" stats={STORAGE_PLAN_STATS} showFooter={false} onUpgrade={onUpgrade} />
+      <ServicePlanCard
+        planName="Free"
+        stats={STORAGE_PLAN_STATS}
+        showFooter={false}
+        onUpgrade={onUpgrade}
+        scheduledUpgrade={scheduledUpgrade}
+        onCancelSchedule={onCancelSchedule}
+      />
 
       <div className="grid grid-cols-2 gap-4">
         <RadialGauge label="Size" value={0} max={1} unit="GB" />

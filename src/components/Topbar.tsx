@@ -4,6 +4,7 @@ import { BellRing } from "@/components/animate-ui/icons/bell-ring";
 import { Check } from "@/components/animate-ui/icons/check";
 import { Clapperboard } from "@/components/animate-ui/icons/clapperboard";
 import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
+import { Coins } from "@/components/animate-ui/icons/coins";
 import { Gem } from "@/components/animate-ui/icons/gem";
 import { LogOut } from "@/components/animate-ui/icons/log-out";
 import { PanelLeft } from "@/components/animate-ui/icons/panel-left";
@@ -25,7 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
-import { ACCOUNT_BALANCE } from "@/data/nav";
+import { useAccountBalance } from "@/context/AccountBalanceContext";
 import { useFirstUser } from "@/firstusersrc/FirstUserContext";
 
 /* ------------------------------------------------------------------ *
@@ -85,6 +86,7 @@ export function Topbar({
   const [logOutConfirmOpen, setLogOutConfirmOpen] = useState(false);
   const unreadCount = notifications.filter((n) => !n.read).length;
   const { isFirstUser, toggleFirstUser } = useFirstUser();
+  const { khr, bg } = useAccountBalance();
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-zinc-200 bg-white pl-4 pr-9 dark:border-zinc-800 dark:bg-zinc-950">
@@ -121,19 +123,29 @@ export function Topbar({
       </nav>
 
       <div className="ml-auto flex items-center gap-3">
-        {/* BG balance pill — an at-a-glance account summary that belongs
-            up here (every screen sees it). KHR isn't shown alongside it
-            (no wallet balance to show — every KHR payment is made
-            directly, per Payment's own design); Business Gold is the
-            one persistent balance worth surfacing. Clicking jumps to
-            Payment, same as the Sidebar's own "Payment" row. */}
+        {/* KHR + BG balance pills — an at-a-glance account summary that
+            belongs up here (every screen sees it). Cancelling/resuming a
+            subscription on the Billing page reloads/takes back its
+            amount from the matching balance, so both need to stay live
+            here rather than a frozen number. Clicking jumps to Payment,
+            same as the Sidebar's own "Payment" row. */}
+        <button
+          type="button"
+          onClick={onOpenPayment}
+          className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 motion-safe:transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+        >
+          <Coins className="h-3.5 w-3.5 text-amber-500" animateOnView />
+          {khr.toLocaleString()}
+          <span className="font-normal text-zinc-400 dark:text-zinc-500">KHR</span>
+        </button>
+
         <button
           type="button"
           onClick={onOpenPayment}
           className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 motion-safe:transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
         >
           <Gem className="h-3.5 w-3.5 text-[#1C75BC] dark:text-[#6FA8D8]" animateOnView />
-          {ACCOUNT_BALANCE.bg.toLocaleString()}
+          {bg.toLocaleString()}
           <span className="font-normal text-zinc-400 dark:text-zinc-500">BG</span>
         </button>
 

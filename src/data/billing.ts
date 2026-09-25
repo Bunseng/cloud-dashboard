@@ -79,9 +79,9 @@ export const PLACEHOLDER_SUBSCRIPTION_COUNT = 3;
    here match what Storage/Run App/Database already show elsewhere
    (Storage's single Free plan, PLACEHOLDER_SUBSCRIPTION_COUNT Run App +
    Database subscriptions) so Billing doesn't invent its own numbers.
-   Two are billed in Business Gold instead of KHR, and one is Paused, so
-   the Usage tab's "this month" total has something real to exclude and
-   to split by currency. */
+   Two are billed in Business Gold instead of KHR, and one is already
+   Schedule cancel, so the Usage tab's "this month" total has something
+   real to exclude and to split by currency. */
 export const BILLING_RECORDS: BillingRecord[] = [
   {
     id: "bill-storage",
@@ -120,7 +120,7 @@ export const BILLING_RECORDS: BillingRecord[] = [
     plan: "Basic",
     amount: 36000,
     currency: "KHR",
-    status: { label: "Paused", tone: "zinc" },
+    status: { label: "Schedule cancel", tone: "amber" },
     renewsOn: "—",
   },
   {

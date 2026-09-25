@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 
 import { PaymentCardVisual } from "./PaymentCard";
-import { ACCOUNT_BALANCE } from "../data/nav";
+import { useAccountBalance } from "../context/AccountBalanceContext";
 import type { CardBrand, SavedCard } from "../data/paymentMethods";
 
 /* ------------------------------------------------------------------ *
@@ -167,7 +167,7 @@ export function PaymentMethodPicker({
   // balance actually covers it.
   amount?: number;
 }) {
-  const bgBalance = ACCOUNT_BALANCE.bg;
+  const { bg: bgBalance } = useAccountBalance();
   const bgInsufficient = allowBG && amount != null && bgBalance < amount;
 
   return (

@@ -41,13 +41,27 @@ import {
   type BillingCategoryKey,
   type BillingRecord,
 } from "../data/billing";
+import { useAccountBalance } from "../context/AccountBalanceContext";
+import { formatScheduleDate, usePlanSchedule } from "../context/PlanScheduleContext";
 import { useFirstUser } from "../firstusersrc/FirstUserContext";
+
+/* Every "Upgrade Plan" schedule is keyed per-instance (see
+   PlanScheduleContext / AppRoutes) — "database:DB Instance 1",
+   "runapp:1", "storage". Billing's own record ids ("bill-database-1",
+   "bill-runapp-1", "bill-storage") carry the same subscription number,
+   so this just re-derives the same key from the id instead of Billing
+   inventing its own scheme. */
+function scheduleKeyFor(record: BillingRecord): string {
+  const n = record.id.match(/-(\d+)$/)?.[1];
+  if (record.category === "database") return `database:DB Instance ${n}`;
+  if (record.category === "runapp") return `runapp:${n}`;
+  return "storage";
+}
 
 const STATUS_FILTERS = [
   { key: "all", label: "All Status" },
   { key: "Active", label: "Active" },
   { key: "Schedule cancel", label: "Schedule cancel" },
-  { key: "Paused", label: "Paused" },
 ] as const;
 type StatusFilterKey = (typeof STATUS_FILTERS)[number]["key"];
 
@@ -150,15 +164,19 @@ function SubscriptionTab() {
   // bill for yet — so the whole tab reads off an empty list instead of
   // the placeholder BILLING_RECORDS.
   const { isFirstUser } = useFirstUser();
-  // Cancel/Resume are the only actions that ever change a subscription's
-  // status, so only that override needs to live in state — everything
-  // else still reads straight from BILLING_RECORDS.
+  // Cancel/Pause/Resume are the only actions that ever change a
+  // subscription's status, so only that override needs to live in state
+  // — everything else still reads straight from BILLING_RECORDS.
   const [statusOverrides, setStatusOverrides] = useState<Record<string, BillingRecord["status"]>>({});
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+  const [resumeTargetId, setResumeTargetId] = useState<string | null>(null);
+  const { getSchedule } = usePlanSchedule();
+  const { creditKHR, debitKHR, creditBG, debitBG } = useAccountBalance();
   const records = (isFirstUser ? [] : BILLING_RECORDS).map((r) =>
     statusOverrides[r.id] ? { ...r, status: statusOverrides[r.id] } : r
   );
   const cancelTarget = records.find((r) => r.id === cancelTargetId) ?? null;
+  const resumeTarget = records.find((r) => r.id === resumeTargetId) ?? null;
 
   const categoryLabel = (key: BillingCategoryKey) =>
     BILLING_CATEGORIES.find((c) => c.key === key)?.label ?? key;
@@ -232,7 +250,7 @@ function SubscriptionTab() {
           {categorySuffix}
         </CardTitle>
         <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-          Active subscriptions only — paused ones aren't charged.
+          Active subscriptions only — cancelled/paused ones aren't charged.
         </p>
         <div className="mt-4 flex flex-wrap gap-6">
           <div className="flex items-center gap-2">
@@ -272,10 +290,10 @@ function SubscriptionTab() {
             {filtered.length > 0 ? (
               filtered.map((r) => {
                 const cat = BILLING_CATEGORIES.find((c) => c.key === r.category);
-                const counted = r.status.label === "Active";
                 const isScheduledCancel = r.status.label === "Schedule cancel";
+                const scheduledUpgrade = getSchedule(scheduleKeyFor(r));
                 return (
-                  <TableRow key={r.id} className={counted ? "" : "opacity-50"}>
+                  <TableRow key={r.id}>
                     <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">
                       <div className="flex items-center gap-2">
                         {cat?.icon && (
@@ -284,27 +302,28 @@ function SubscriptionTab() {
                         {r.name}
                       </div>
                     </TableCell>
-                    <TableCell className="text-zinc-600 dark:text-zinc-400">{r.plan}</TableCell>
-                    <TableCell
-                      className={
-                        "whitespace-nowrap text-zinc-600 dark:text-zinc-400 " +
-                        (counted ? "" : "line-through")
-                      }
-                    >
+                    <TableCell className="text-zinc-600 dark:text-zinc-400">
+                      <p>{r.plan}</p>
+                      {scheduledUpgrade && (
+                        <p className="mt-0.5 whitespace-nowrap text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                          Upgrading to {scheduledUpgrade.tierName} on {formatScheduleDate(scheduledUpgrade.date)}
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-zinc-600 dark:text-zinc-400">
                       {r.amount === 0 ? "FREE" : `${r.amount.toLocaleString()} ${r.currency}/mo`}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <StatusBadge label={r.status.label} tone={r.status.tone} />
-                        {!counted && (
-                          <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                            not counted
-                          </span>
-                        )}
-                      </div>
+                      <StatusBadge label={r.status.label} tone={r.status.tone} />
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-zinc-600 dark:text-zinc-400">
-                      {r.renewsOn}
+                      {isScheduledCancel ? (
+                        <span className="text-[13px] font-medium text-amber-600 dark:text-amber-400">
+                          Won't renew after this date
+                        </span>
+                      ) : (
+                        r.renewsOn
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       {r.status.label === "Active" && (
@@ -319,12 +338,7 @@ function SubscriptionTab() {
                       {isScheduledCancel && (
                         <Button
                           variant="brand"
-                          onClick={() =>
-                            setStatusOverrides((prev) => ({
-                              ...prev,
-                              [r.id]: { label: "Active", tone: "green" },
-                            }))
-                          }
+                          onClick={() => setResumeTargetId(r.id)}
                           className="h-8 px-3 text-xs"
                         >
                           Resume
@@ -371,11 +385,30 @@ function SubscriptionTab() {
         confirmLabel="Cancel Subscription"
         variant="destructive"
         onConfirm={() => {
-          if (!cancelTargetId) return;
+          if (!cancelTargetId || !cancelTarget) return;
           setStatusOverrides((prev) => ({
             ...prev,
             [cancelTargetId]: { label: "Schedule cancel", tone: "amber" },
           }));
+          if (cancelTarget.currency === "BG") creditBG(cancelTarget.amount);
+          else creditKHR(cancelTarget.amount);
+        }}
+      />
+
+      <ConfirmDialog
+        open={resumeTargetId != null}
+        onOpenChange={(open) => !open && setResumeTargetId(null)}
+        title={resumeTarget ? `Resume ${resumeTarget.name}?` : "Resume subscription?"}
+        description="It goes back to Active and will renew and bill again as scheduled."
+        confirmLabel="Resume Subscription"
+        onConfirm={() => {
+          if (!resumeTargetId || !resumeTarget) return;
+          setStatusOverrides((prev) => ({
+            ...prev,
+            [resumeTargetId]: { label: "Active", tone: "green" },
+          }));
+          if (resumeTarget.currency === "BG") debitBG(resumeTarget.amount);
+          else debitKHR(resumeTarget.amount);
         }}
       />
     </div>

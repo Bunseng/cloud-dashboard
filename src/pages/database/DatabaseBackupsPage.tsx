@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 import { ServicePlanCard } from "../../components/PlanCards";
+import { usePlanSchedule } from "../../context/PlanScheduleContext";
 import { SERVICE_PRICING } from "../../data/pricing";
 import { DATABASE_INSTANCES } from "./DatabaseInstanceDetailPage";
 import { useDatabaseBackup } from "./DatabaseBackupContext";
@@ -22,6 +23,7 @@ const INSTANCE_NAMES = Object.keys(DATABASE_INSTANCES);
 export function DatabaseBackupsPage() {
   const navigate = useNavigate();
   const { isSubscribed, getTierId, backups } = useDatabaseBackup();
+  const { getSchedule, cancelSchedule } = usePlanSchedule();
 
   return (
     <div>
@@ -82,6 +84,8 @@ export function DatabaseBackupsPage() {
                   `/subscribe/databaseBackup/${tierId}?upgrade=1&return=${encodeURIComponent(backupsPath)}&instance=${encodeURIComponent(name)}`
                 )
               }
+              scheduledUpgrade={getSchedule(`databaseBackup:${name}`)}
+              onCancelSchedule={() => cancelSchedule(`databaseBackup:${name}`)}
             />
           );
         })}

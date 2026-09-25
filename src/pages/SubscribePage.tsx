@@ -1,11 +1,12 @@
 import type { ComponentType } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CircleCheck as CheckCircle2 } from "@/components/animate-ui/icons/circle-check";
 import { ChevronDown } from "@/components/animate-ui/icons/chevron-down";
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
@@ -16,6 +17,7 @@ import {
   resolvePaymentSelection,
   type PaymentSelection,
 } from "../components/PaymentFlow";
+import { formatScheduleDate } from "../context/PlanScheduleContext";
 import { addSavedCard, SAVED_CARDS, type SavedCard } from "../data/paymentMethods";
 import { getTierTheme, SERVICE_PRICING, type PricingServiceKey } from "../data/pricing";
 
@@ -35,10 +37,18 @@ import { getTierTheme, SERVICE_PRICING, type PricingServiceKey } from "../data/p
  * Plan" (undeletable/unselectable, same disabled treatment Planning
  * uses), so upgrading is just "Change Plan" with the copy reframed
  * around what you already have.
+ *
+ * Upgrades also insert one extra step (Plan → Schedule → Payment →
+ * Success): "Upgrade now" keeps the flow exactly as above, while
+ * "Schedule for later" picks a future date, skips payment for now (it's
+ * not due yet), and reports that date back through `onDone` so the
+ * caller can show "Upgrading to X on <date>" on the subscription's own
+ * card instead of applying the change immediately.
  * ------------------------------------------------------------------ */
 
-type Step = "plan" | "method" | "success";
+type Step = "plan" | "schedule" | "method" | "success";
 type SubscribeMode = "new" | "upgrade";
+type ScheduleChoice = "now" | "later";
 
 function PlanPicker({
   categoryKey,
@@ -177,6 +187,131 @@ function PlanPicker({
   );
 }
 
+/* "Upgrade now" vs "Schedule for later" — only shown mid-upgrade (a new
+   subscription has no current plan to keep running in the meantime).
+   Scheduling skips payment here; the change (and its charge) only
+   happens once the date arrives. */
+function SchedulePicker({
+  tierName,
+  currentTierName,
+  priceDisplay,
+  specs,
+  choice,
+  onChoiceChange,
+  date,
+  onDateChange,
+  minDate,
+  onContinue,
+}: {
+  tierName: string;
+  currentTierName?: string;
+  priceDisplay: string;
+  specs: [string, string][];
+  choice: ScheduleChoice;
+  onChoiceChange: (choice: ScheduleChoice) => void;
+  date: string;
+  onDateChange: (date: string) => void;
+  minDate: string;
+  onContinue: () => void;
+}) {
+  const canContinue = choice === "now" || Boolean(date);
+
+  return (
+    <div className="mx-auto max-w-[440px]">
+      <Card>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {currentTierName ? `Upgrading from ${currentTierName} to` : "Upgrading to"}
+            </p>
+            <p className="text-base font-bold text-zinc-900 dark:text-zinc-50">{tierName}</p>
+          </div>
+          <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{priceDisplay}</p>
+        </div>
+
+        <ul className="mt-3 space-y-1.5 border-t border-zinc-100 pt-3 text-[13px] text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+          {specs.map(([label, value]) => (
+            <li key={label} className="flex items-center justify-between gap-2">
+              <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">{value}</span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-4 border-t border-zinc-100 pt-4 text-sm font-semibold text-zinc-900 dark:border-zinc-800 dark:text-zinc-100">
+          When should this take effect?
+        </p>
+
+        <RadioGroup
+          value={choice}
+          onValueChange={(v) => onChoiceChange(v as ScheduleChoice)}
+          className="mt-3 space-y-2.5"
+        >
+          {(
+            [
+              ["now", "Upgrade now", `Pay ${priceDisplay} now — takes effect right after payment.`],
+              [
+                "later",
+                "Schedule for later",
+                `Pick a date — your current plan stays active until then, then ${priceDisplay} is charged.`,
+              ],
+            ] as const
+          ).map(([value, label, hint]) => {
+            const id = `schedule-${value}`;
+            const isSelected = choice === value;
+            return (
+              <Label
+                key={value}
+                htmlFor={id}
+                className={
+                  "flex cursor-pointer items-start justify-between gap-3 rounded-lg border px-3 py-2.5 font-normal motion-safe:transition-colors " +
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 " +
+                  (isSelected
+                    ? "border-[#1C75BC] bg-[#EFF6FF] dark:bg-zinc-900"
+                    : "border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900")
+                }
+              >
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">
+                    {label}
+                  </span>
+                  <span className="mt-0.5 block text-[12px] text-zinc-500 dark:text-zinc-400">{hint}</span>
+                </span>
+                <RadioGroupItem value={value} id={id} className="mt-0.5" />
+              </Label>
+            );
+          })}
+        </RadioGroup>
+
+        {choice === "later" && (
+          <div className="mt-3">
+            <Label htmlFor="schedule-date" className="text-zinc-900 dark:text-zinc-100">
+              Upgrade date
+            </Label>
+            <Input
+              id="schedule-date"
+              type="date"
+              min={minDate}
+              value={date}
+              onChange={(e) => onDateChange(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+        )}
+
+        <Button
+          variant="brand"
+          disabled={!canContinue}
+          onClick={onContinue}
+          className="mt-5 h-10 w-full text-sm"
+        >
+          Continue
+        </Button>
+      </Card>
+    </div>
+  );
+}
+
 function SubscribeSummary({
   name,
   priceDisplay,
@@ -204,12 +339,16 @@ function SubscribeSummary({
 function SuccessPage({
   categoryLabel,
   tierName,
+  priceDisplay,
   isUpgrade,
+  scheduledDate,
   onDone,
 }: {
   categoryLabel: string;
   tierName: string;
+  priceDisplay: string;
   isUpgrade?: boolean;
+  scheduledDate?: string;
   onDone: () => void;
 }) {
   return (
@@ -219,12 +358,14 @@ function SuccessPage({
       </div>
       <div>
         <p className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
-          {isUpgrade ? "Plan Upgraded" : "Subscription Active"}
+          {scheduledDate ? "Upgrade Scheduled" : isUpgrade ? "Plan Upgraded" : "Subscription Active"}
         </p>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          {isUpgrade
-            ? `You've upgraded to the ${tierName} plan for ${categoryLabel}.`
-            : `You're now on the ${tierName} plan for ${categoryLabel}.`}
+          {scheduledDate
+            ? `Your plan will change to ${tierName} (${priceDisplay}) on ${formatScheduleDate(scheduledDate)}. You won't be charged until then.`
+            : isUpgrade
+            ? `You've upgraded to the ${tierName} plan (${priceDisplay}) for ${categoryLabel}.`
+            : `You're now on the ${tierName} plan (${priceDisplay}) for ${categoryLabel}.`}
         </p>
       </div>
 
@@ -263,8 +404,9 @@ export function SubscribePage({
   // change it right up until payment, so it can end up different from
   // initialTierId; callers that need to record which plan won (e.g.
   // Database Backup, scoped to one instance) read it from here rather
-  // than re-reading initialTierId.
-  onDone: (tierId: string) => void;
+  // than re-reading initialTierId. `scheduledDate` is set only when the
+  // upgrade was scheduled for later rather than applied now.
+  onDone: (tierId: string, scheduledDate?: string) => void;
   onCancel: () => void;
 }) {
   const isUpgrade = mode === "upgrade";
@@ -273,12 +415,21 @@ export function SubscribePage({
   const [tierId, setTierId] = useState(
     tiers.some((t) => t.id === initialTierId) ? initialTierId : tiers[0].id
   );
+  const [scheduleChoice, setScheduleChoice] = useState<ScheduleChoice>("now");
+  const [scheduledDate, setScheduledDate] = useState("");
   const [method, setMethod] = useState<PaymentSelection | null>(null);
   const [payOpen, setPayOpen] = useState(false);
   const [addCardOpen, setAddCardOpen] = useState(false);
   // Same shared SAVED_CARDS array Wallet/Top Up read — a card added
   // there (or right here, mid-flow) is a "no scan needed" choice.
   const [cards, setCards] = useState<SavedCard[]>(() => [...SAVED_CARDS]);
+  // Tomorrow — a schedule can't be for today or the past.
+  const minScheduleDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }, []);
+  const isScheduled = isUpgrade && scheduleChoice === "later" && Boolean(scheduledDate);
 
   const currentTierId = isUpgrade ? initialTierId : undefined;
   const currentTierName = tiers.find((t) => t.id === currentTierId)?.name;
@@ -313,7 +464,36 @@ export function SubscribePage({
             tierId={tierId}
             currentTierId={currentTierId}
             onSelectTier={setTierId}
-            onContinue={() => (isFree ? setStep("success") : setStep("method"))}
+            onContinue={() => {
+              if (isUpgrade) {
+                setScheduleChoice("now");
+                setScheduledDate("");
+                setStep("schedule");
+              } else {
+                setStep(isFree ? "success" : "method");
+              }
+            }}
+          />
+        )}
+
+        {step === "schedule" && (
+          <SchedulePicker
+            tierName={tier.name}
+            currentTierName={currentTierName}
+            priceDisplay={priceDisplay}
+            specs={tier.specs}
+            choice={scheduleChoice}
+            onChoiceChange={setScheduleChoice}
+            date={scheduledDate}
+            onDateChange={setScheduledDate}
+            minDate={minScheduleDate}
+            onContinue={() => {
+              if (scheduleChoice === "later") {
+                setStep("success");
+              } else {
+                setStep(isFree ? "success" : "method");
+              }
+            }}
           />
         )}
 
@@ -341,13 +521,15 @@ export function SubscribePage({
           <SuccessPage
             categoryLabel={categoryLabel}
             tierName={tier.name}
+            priceDisplay={priceDisplay}
             isUpgrade={isUpgrade}
-            onDone={() => onDone(tier.id)}
+            scheduledDate={isScheduled ? scheduledDate : undefined}
+            onDone={() => onDone(tier.id, isScheduled ? scheduledDate : undefined)}
           />
         )}
       </div>
 
-      {step === "method" && (
+      {(step === "schedule" || step === "method") && (
         <div className="mx-auto mt-3 max-w-[440px]">
           <button
             type="button"
