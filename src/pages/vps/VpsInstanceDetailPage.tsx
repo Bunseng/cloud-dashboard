@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
 import { Gauge } from "@/components/animate-ui/icons/gauge";
 import { Key } from "@/components/animate-ui/icons/key";
 import { Pencil } from "@/components/animate-ui/icons/pencil";
@@ -16,7 +17,9 @@ import { ServicePlanCard } from "../../components/PlanCards";
 import { BillingDashboardButton, ConnectionRow, StatTile, StatusBadge } from "../../components/atoms";
 import type { ScheduledPlanChange } from "../../context/PlanScheduleContext";
 import { PLACEHOLDER_SUBSCRIPTION_COUNT } from "../../data/billing";
-import { AddSshKeyDialog, EditVpsDialog } from "./VpsDialogs";
+import { SERVICE_PRICING } from "../../data/pricing";
+import { AddSshKeyDialog, addVpsSshKey, EditVpsDialog, VPS_SSH_KEYS } from "./VpsDialogs";
+import { useVpsSnapshot } from "./VpsSnapshotContext";
 
 /* ------------------------------------------------------------------ *
  * VPS instance detail — one full root-access server per subscription,
@@ -26,11 +29,11 @@ import { AddSshKeyDialog, EditVpsDialog } from "./VpsDialogs";
  * connection string. Resizing CPU/RAM/Storage is a plan change —
  * handled by the Subscribe flow's "Change Plan" step via the
  * Subscription card's "Upgrade Plan" button — not by anything on this
- * page. Snapshots live on their own sidebar page (across all
- * instances), same as Database's backups. The web console is a real
- * SSH session, so "Web Console" opens one in a new tab rather than
- * faking a shell inline; "Monitoring" drills into its own page for the
- * live metrics.
+ * page. Snapshots — same shape as Database's Backups — get their own
+ * per-instance page one level down; this card is just the entry point.
+ * The web console is a real SSH session, so "Web Console" opens one in
+ * a new tab rather than faking a shell inline; "Monitoring" drills into
+ * its own page for the live metrics.
  * ------------------------------------------------------------------ */
 
 interface VpsInstance {
@@ -41,11 +44,6 @@ interface VpsInstance {
   region: string;
   resource: { cpu: string; memory: string; storage: string; bandwidth: string };
   network: { publicIp: string; privateIp: string; sshCommand: string };
-}
-
-interface SshKey {
-  name: string;
-  publicKey: string;
 }
 
 function makeTemplate(index: number): Omit<VpsInstance, "name"> {
@@ -73,14 +71,12 @@ export const VPS_INSTANCES: Record<string, VpsInstance> = Object.fromEntries(
   })
 );
 
-const SAMPLE_KEY_FINGERPRINT =
-  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGx3z2s9c1r3f0a1v2b3n4m5q6w7e8r9t0y1u2i3o4p";
-
 export function VpsInstanceDetailPage({
   instanceName,
   onBack,
   onUpgrade,
   onMonitoring,
+  onOpenSnapshots,
   overrides,
   scheduledUpgrade,
   onCancelSchedule,
@@ -89,27 +85,44 @@ export function VpsInstanceDetailPage({
   onBack: () => void;
   onUpgrade?: () => void;
   onMonitoring?: () => void;
+  onOpenSnapshots: () => void;
   scheduledUpgrade?: ScheduledPlanChange | null;
   onCancelSchedule?: () => void;
-  // Freshly provisioned via CreateVpsPage — its hostname/OS/region win
-  // over the sample template so the just-filled-in form actually shows
-  // up on the instance it created.
-  overrides?: { hostname?: string; os?: string; region?: string };
+  // Freshly provisioned via CreateVpsPage — its hostname/OS/region/tier
+  // win over the sample template so the just-filled-in form actually
+  // shows up on the instance it created.
+  overrides?: { hostname?: string; os?: string; region?: string; tierId?: string };
 }) {
+  const { isSubscribed, getTierId, snapshots } = useVpsSnapshot();
+  const snapshotSubscribed = isSubscribed(instanceName);
+  const instanceSnapshotCount = snapshots.filter((s) => s.instanceName === instanceName).length;
+  const snapshotPlan = SERVICE_PRICING.vpsSnapshot.find((t) => t.id === getTierId(instanceName));
+  const vpsTier = SERVICE_PRICING.vps.find((t) => t.id === overrides?.tierId);
   const base = {
     ...(VPS_INSTANCES[instanceName] ?? { ...makeTemplate(1), name: instanceName }),
     ...(overrides?.hostname ? { hostname: overrides.hostname } : {}),
     ...(overrides?.os ? { os: overrides.os } : {}),
     ...(overrides?.region ? { region: overrides.region } : {}),
+    ...(vpsTier
+      ? {
+          resource: {
+            cpu: vpsTier.specs.find(([label]) => label === "vCPU")?.[1] ?? "2 Core",
+            memory: vpsTier.specs.find(([label]) => label === "RAM")?.[1] ?? "4 GB",
+            storage: vpsTier.specs.find(([label]) => label === "SSD Storage")?.[1] ?? "80 GB",
+            bandwidth: vpsTier.specs.find(([label]) => label === "Bandwidth")?.[1] ?? "4 TB",
+          },
+        }
+      : {}),
   };
   const [d, setD] = useState(base);
   const [running, setRunning] = useState(d.status.label === "Running");
   const [editOpen, setEditOpen] = useState(false);
   const [destroyOpen, setDestroyOpen] = useState(false);
   const [addKeyOpen, setAddKeyOpen] = useState(false);
-  const [sshKeys, setSshKeys] = useState<SshKey[]>([
-    { name: "admin-laptop", publicKey: SAMPLE_KEY_FINGERPRINT },
-  ]);
+  // Seeded from the shared, account-level key list — same keys a Create
+  // VPS flow (or another instance's own "Add Key") already added show
+  // up here too, and anything added here is reusable everywhere else.
+  const [sshKeys, setSshKeys] = useState(() => [...VPS_SSH_KEYS]);
   const status = running ? { label: "Running", tone: "green" } : { label: "Stopped", tone: "red" };
 
   function openTerminal() {
@@ -293,6 +306,44 @@ export function VpsInstanceDetailPage({
             </div>
           </Card>
 
+          {/* Snapshots — the full list + history/restore lives on its own
+              page (matches Database's dedicated Backup List page); this
+              card is just the entry point. Not subscribed yet: the button
+              sends you straight into the Subscribe flow (that page
+              auto-redirects there) instead of picking a plan inline
+              here. */}
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle>Snapshots</CardTitle>
+                <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
+                  {snapshotSubscribed
+                    ? `${instanceSnapshotCount} snapshot${instanceSnapshotCount === 1 ? "" : "s"}${
+                        snapshotPlan ? ` · ${snapshotPlan.name} plan` : ""
+                      }`
+                    : "Not enabled yet — subscribe to a Snapshot plan to get started."}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={onOpenSnapshots}
+                className="h-9 shrink-0 gap-1.5 text-sm"
+              >
+                {snapshotSubscribed ? (
+                  <>
+                    Snapshot List
+                    <ChevronRight className="h-3.5 w-3.5" animateOnHover animateOnTap />
+                  </>
+                ) : (
+                  <>
+                    Enable Snapshot
+                    <ChevronRight className="h-3.5 w-3.5" animateOnHover animateOnTap />
+                  </>
+                )}
+              </Button>
+            </div>
+          </Card>
+
           {/* Danger zone */}
           <Card className="border-red-200 dark:border-red-900/40">
             <div className="flex items-center justify-between gap-3">
@@ -321,8 +372,18 @@ export function VpsInstanceDetailPage({
           </div>
 
           <ServicePlanCard
-            planName="Standard"
-            stats={VPS_PLAN_STATS}
+            planName={vpsTier?.name ?? "Standard"}
+            stats={
+              vpsTier
+                ? [
+                    ["Status", "Active", "text-emerald-600 dark:text-emerald-400"],
+                    ["Renews On", "Aug 2, 2026"],
+                    ["Pricing", `${vpsTier.priceKHR.toLocaleString()} KHR/mo`],
+                    ["Bandwidth", d.resource.bandwidth],
+                    ["Region", d.region],
+                  ]
+                : VPS_PLAN_STATS
+            }
             showFooter={false}
             onUpgrade={onUpgrade}
             scheduledUpgrade={scheduledUpgrade}
@@ -344,7 +405,7 @@ export function VpsInstanceDetailPage({
       <AddSshKeyDialog
         open={addKeyOpen}
         onOpenChange={setAddKeyOpen}
-        onAdd={(key) => setSshKeys((prev) => [...prev, key])}
+        onAdd={(key) => setSshKeys((prev) => [...prev, addVpsSshKey(key)])}
       />
 
       <ConfirmDialog

@@ -8,6 +8,7 @@ import { Coins } from "@/components/animate-ui/icons/coins";
 import { Gem } from "@/components/animate-ui/icons/gem";
 import { LogOut } from "@/components/animate-ui/icons/log-out";
 import { PanelLeft } from "@/components/animate-ui/icons/panel-left";
+import { Plus } from "@/components/animate-ui/icons/plus";
 import { Receipt } from "@/components/animate-ui/icons/receipt";
 import { Sun } from "@/components/animate-ui/icons/sun";
 import { UserPlus } from "@/components/animate-ui/icons/user-plus";
@@ -68,6 +69,7 @@ export function Topbar({
   breadcrumb,
   onOpenBilling,
   onOpenPayment,
+  onOpenTopUp,
   onOpenProfile,
   onOpenMedia,
   onLogOut,
@@ -78,6 +80,7 @@ export function Topbar({
   breadcrumb: string[];
   onOpenBilling?: () => void;
   onOpenPayment?: () => void;
+  onOpenTopUp?: () => void;
   onOpenProfile?: () => void;
   onOpenMedia?: () => void;
   onLogOut?: () => void;
@@ -148,6 +151,15 @@ export function Topbar({
           {bg.toLocaleString()}
           <span className="font-normal text-zinc-400 dark:text-zinc-500">BG</span>
         </button>
+
+        <Button
+          variant="brand"
+          onClick={onOpenTopUp}
+          className="h-8 shrink-0 gap-1.5 px-3 text-xs"
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} animateOnHover animateOnTap />
+          Top Up
+        </Button>
 
         <Separator
           orientation="vertical"

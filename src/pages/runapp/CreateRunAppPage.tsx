@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { CircleCheck } from "@/components/animate-ui/icons/circle-check";
+import { LoaderCircle } from "@/components/animate-ui/icons/loader-circle";
 import { Plus } from "@/components/animate-ui/icons/plus";
 import { Upload } from "@/components/animate-ui/icons/upload";
 import { X } from "@/components/animate-ui/icons/x";
@@ -16,6 +18,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { PILL_TABS_LIST_CLASS, PILL_TAB_TRIGGER_CLASS } from "../../components/atoms";
+import { useProject } from "../../context/ProjectContext";
 import { RESOURCE_PRESETS, RunAppEditorDialog, RunAppUploadDialog } from "./RunAppDialogs";
 import { STACK_ROWS } from "./RunAppComponents";
 import { RegistryAuthField } from "./RegistryDialogs";
@@ -336,8 +339,11 @@ export function CreateRunAppPage({
   onSave,
 }: {
   onBack: () => void;
-  // Required for mode="create", unused for mode="edit".
-  onCreate?: (stack: (typeof STACK_ROWS)[number]) => void;
+  // Required for mode="create", unused for mode="edit". Doesn't set
+  // `subscriptionNumber` itself — this page has no notion of which
+  // subscription it's under, so the caller (CreateRunAppRoute, which
+  // does) tags that on before using the stack.
+  onCreate?: (stack: Omit<(typeof STACK_ROWS)[number], "subscriptionNumber">) => void;
   mode?: "create" | "edit";
   initialStackName?: string;
   initialServices?: RunAppServiceSeed[];
@@ -353,6 +359,13 @@ export function CreateRunAppPage({
   );
   const [editorOpen, setEditorOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const { activeProjectId } = useProject();
+  // Same shape as Create VPS: a brief loading spinner, then a success
+  // checkmark, before actually handing off — deploying a stack should
+  // feel like it took a moment, not return instantly.
+  const [phase, setPhase] = useState<"edit" | "creating" | "created">("edit");
+  const pendingTimers = useRef<number[]>([]);
+  useEffect(() => () => pendingTimers.current.forEach(window.clearTimeout), []);
 
   const trimmedName = stackName.trim();
   const valid = Boolean(trimmedName) && services.every((s) => s.name.trim());
@@ -371,12 +384,21 @@ export function CreateRunAppPage({
       onSave?.(trimmedName);
       return;
     }
-    onCreate?.({
-      id: `stk-${Date.now()}`,
-      name: trimmedName,
-      status: { label: "Deploying", tone: "blue" },
-      serviceCount: services.length,
-    });
+    setPhase("creating");
+    const loadingTimer = window.setTimeout(() => {
+      setPhase("created");
+      const doneTimer = window.setTimeout(() => {
+        onCreate?.({
+          id: `stk-${Date.now()}`,
+          name: trimmedName,
+          status: { label: "Deploying", tone: "blue" },
+          serviceCount: services.length,
+          projectId: activeProjectId ?? "",
+        });
+      }, 900);
+      pendingTimers.current.push(doneTimer);
+    }, 1400);
+    pendingTimers.current.push(loadingTimer);
   }
 
   // Round-trips the current form as JSON, so opening the editor starts
@@ -425,21 +447,52 @@ export function CreateRunAppPage({
     }
   }
 
+  const isFinalizing = phase === "creating" || phase === "created";
+
   return (
     <div>
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
-      >
-        <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
-        {mode === "edit" ? "Back to Stack List" : "Back to RunApp List"}
-      </button>
+      {!isFinalizing && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
+        >
+          <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
+          {mode === "edit" ? "Back to Stack List" : "Back to RunApp List"}
+        </button>
+      )}
 
-      <h1 className="mt-5 text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
-        {mode === "edit" ? "Edit Run App" : "Create Run App"}
-      </h1>
+      {!isFinalizing && (
+        <h1 className="mt-5 text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
+          {mode === "edit" ? "Edit Run App" : "Create Run App"}
+        </h1>
+      )}
 
+      {isFinalizing ? (
+        <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+          {phase === "creating" ? (
+            <>
+              <LoaderCircle className="h-10 w-10 animate-spin text-[#1C75BC]" animate loop />
+              <p className="mt-4 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                Creating {trimmedName}…
+              </p>
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                Deploying your stack — this only takes a moment.
+              </p>
+            </>
+          ) : (
+            <>
+              <CircleCheck className="h-10 w-10 text-emerald-500" animateOnView />
+              <p className="mt-4 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                {trimmedName} is ready
+              </p>
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                Taking you to your new stack…
+              </p>
+            </>
+          )}
+        </div>
+      ) : (
       <div className="mt-5 max-w-[640px] space-y-5">
         <div>
           <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Stack Name</p>
@@ -532,6 +585,7 @@ export function CreateRunAppPage({
           </Button>
         </div>
       </div>
+      )}
 
       <RunAppEditorDialog
         open={editorOpen}

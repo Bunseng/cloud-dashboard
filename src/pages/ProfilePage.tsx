@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 import { useFirstUser } from "../firstusersrc/FirstUserContext";
 import { VerifyContactDialog, type VerifyField } from "../firstusersrc/VerifyContactDialog";
+import { UserApiTokensSection } from "./ApiTokensSection";
 
 /* ------------------------------------------------------------------ *
  * Profile — restyled after media-cloudplus's own Profile page: one
@@ -45,11 +46,12 @@ import { VerifyContactDialog, type VerifyField } from "../firstusersrc/VerifyCon
 const TABS = [
   { key: "profile", label: "Profile" },
   { key: "security", label: "Security Overview" },
+  { key: "tokens", label: "API Tokens" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
 
-const DEFAULT_ACCOUNT = {
+export const DEFAULT_ACCOUNT = {
   name: "Cloud+ User",
   email: "cloudplus@sabay.com",
   phone: "+855 12 345 678",
@@ -216,7 +218,7 @@ export function ProfilePage() {
               saved={saved}
               onSave={handleSave}
             />
-          ) : (
+          ) : tab === "security" ? (
             <SecurityOverviewTab
               allVerified={allVerified}
               isFirstUser={isFirstUser}
@@ -229,6 +231,8 @@ export function ProfilePage() {
               recoverByPhone={recoverByPhone}
               onRecoverByPhoneChange={setRecoverByPhone}
             />
+          ) : (
+            <ApiTokensTab />
           )}
         </div>
       </div>
@@ -482,6 +486,23 @@ function SecurityOverviewTab({
         </div>
         <Switch id="recover-by-phone" checked={recoverByPhone} onCheckedChange={onRecoverByPhoneChange} />
       </SecurityCard>
+    </div>
+  );
+}
+
+function ApiTokensTab() {
+  return (
+    <div className="flex max-w-[720px] flex-col gap-6">
+      <div>
+        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">API Tokens</h2>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          Manage scoped tokens and your account's Global API Key.
+        </p>
+      </div>
+
+      <Separator className="bg-zinc-200 dark:bg-zinc-800" />
+
+      <UserApiTokensSection />
     </div>
   );
 }

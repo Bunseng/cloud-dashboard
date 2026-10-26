@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { ServicePlanCard } from "../../components/PlanCards";
 import type { ScheduledPlanChange } from "../../context/PlanScheduleContext";
+import { useProject } from "../../context/ProjectContext";
 import { UserManagementTable } from "./UserManagement";
 import {
   BillingDashboardButton,
@@ -108,10 +109,15 @@ export function StorageUsagePanel({
 export interface StorageBucketRow {
   name: string;
   url: string;
+  // Which Project this bucket belongs to — filters the list when a
+  // Project is active, same convention as Run App's STACK_ROWS.
+  projectId: string;
 }
 
 export const STORAGE_BUCKET_ROWS: StorageBucketRow[] = [
-  { name: "streamingbucket", url: "https://fsgw.sabay.test/streamingbucket" },
+  { name: "streamingbucket", url: "https://fsgw.sabay.test/streamingbucket", projectId: "proj-web" },
+  { name: "api-logs", url: "https://fsgw.sabay.test/api-logs", projectId: "proj-api" },
+  { name: "worker-assets", url: "https://fsgw.sabay.test/worker-assets", projectId: "proj-worker" },
 ];
 
 export function BucketsTable({
@@ -247,6 +253,10 @@ export function BucketsTable({
 
 export function StoragePanel({ onViewBucket }: { onViewBucket: (name: string) => void }) {
   const [tab, setTab] = useState("buckets");
+  const { activeProjectId } = useProject();
+  const bucketRows = activeProjectId
+    ? STORAGE_BUCKET_ROWS.filter((b) => b.projectId === activeProjectId)
+    : STORAGE_BUCKET_ROWS;
 
   return (
     <div>
@@ -264,9 +274,9 @@ export function StoragePanel({ onViewBucket }: { onViewBucket: (name: string) =>
           <BucketsTable
             emptyTitle="Bucket Empty"
             emptyDescription="Create your first bucket to store files for Storage, LiveStream, Streaming, and Sabay Meeting."
-            rows={STORAGE_BUCKET_ROWS}
-            totalCount={68}
-            pageCount={7}
+            rows={bucketRows}
+            totalCount={bucketRows.length}
+            pageCount={1}
             onViewDetail={onViewBucket}
           />
         </TabsContent>

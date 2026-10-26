@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 
 import { CreditCard } from "@/components/animate-ui/icons/credit-card";
+import { Key } from "@/components/animate-ui/icons/key";
 import { Receipt } from "@/components/animate-ui/icons/receipt";
 import { Box } from "@/components/animate-ui/icons/box";
 import { LayoutDashboard } from "@/components/animate-ui/icons/layout-dashboard";
@@ -66,6 +67,7 @@ export const MAIN_NAV: NavItem[] = [
 export const MANAGE_NAV: NavItem[] = [
   { id: "payment", label: "Payment", icon: CreditCard },
   { id: "billing", label: "Billing Subscription", icon: Receipt },
+  { id: "api-tokens", label: "API Tokens", icon: Key },
   { id: "groups", label: "Group Members", icon: Users },
 ];
 

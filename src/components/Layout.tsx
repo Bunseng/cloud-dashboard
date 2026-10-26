@@ -31,14 +31,20 @@ export function Layout({
     ? "home"
     : pathname.startsWith("/dashboard")
     ? "dashboard"
+    : pathname.startsWith("/projects")
+    ? "projects"
     : pathname.startsWith("/planning") || pathname.startsWith("/subscribe")
     ? "planning"
-    : pathname.startsWith("/payment") || pathname.startsWith("/topup")
+    : pathname.startsWith("/payment")
     ? "payment"
+    : pathname.startsWith("/topup")
+    ? "topup"
     : pathname.startsWith("/profile")
     ? "profile"
     : pathname.startsWith("/billing")
     ? "billing"
+    : pathname.startsWith("/api-tokens")
+    ? "api-tokens"
     : pathname.startsWith("/groups")
     ? "groups"
     : pathname.startsWith("/storage")
@@ -56,7 +62,13 @@ export function Layout({
   // and is all the breadcrumb ever needed anyway.
   const segs = pathname.split("/").filter(Boolean).map(decodeURIComponent);
   let breadcrumb: string[];
-  if (page === "storage" && segs[1]) {
+  if (page === "projects" && segs[2]) {
+    breadcrumb = ["Home", "Projects", segs[1], segs[2]];
+  } else if (page === "projects" && segs[1]) {
+    breadcrumb = ["Home", "Projects", segs[1]];
+  } else if (page === "projects") {
+    breadcrumb = ["Home", "Projects"];
+  } else if (page === "storage" && segs[1]) {
     breadcrumb = ["Home", "Storage", segs[1]];
   } else if (page === "storage") {
     breadcrumb = ["Home", "Storage"];
@@ -88,7 +100,7 @@ export function Layout({
     breadcrumb = ["Home", "Planning", "Subscribe"];
   } else if (page === "planning") {
     breadcrumb = ["Home", "Planning"];
-  } else if (page === "payment" && pathname.startsWith("/topup")) {
+  } else if (page === "topup") {
     breadcrumb = ["Home", "Payment", "Top Up"];
   } else if (page === "payment") {
     breadcrumb = ["Home", "Payment"];
@@ -96,6 +108,8 @@ export function Layout({
     breadcrumb = ["Home", "Profile"];
   } else if (page === "billing") {
     breadcrumb = ["Home", "Billing Subscription"];
+  } else if (page === "api-tokens") {
+    breadcrumb = ["Home", "API Tokens"];
   } else if (page === "groups" && segs[1]) {
     const group = GROUPS.find((g) => g.id === segs[1]);
     breadcrumb = ["Home", "Group Members", group?.name ?? segs[1]];
@@ -126,6 +140,7 @@ export function Layout({
           onToggleSidebar={() => setCollapsed((c) => !c)}
           onOpenBilling={() => navigate("/billing")}
           onOpenPayment={() => navigate("/payment")}
+          onOpenTopUp={() => navigate("/topup")}
           onOpenProfile={() => navigate("/profile")}
           onOpenMedia={() => navigate("/media")}
           onLogOut={() => navigate("/logout")}

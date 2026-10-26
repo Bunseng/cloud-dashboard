@@ -180,6 +180,7 @@ export const PLAN_STATS: PlanStat[] = [
 
 export function ServicePlanCard({
   title = "Plan",
+  name,
   resourceLabel,
   onSelect,
   onUpgrade,
@@ -191,6 +192,11 @@ export function ServicePlanCard({
   onCancelSchedule,
 }: {
   title?: string;
+  // What's actually inside this subscription (a stack name, a database
+  // instance, a server's hostname, …) — shown under the title so a
+  // subscription slot reads as more than just a number, especially once
+  // it can hold more than one item (Run App's stacks).
+  name?: ReactNode;
   resourceLabel?: string;
   onSelect?: () => void;
   onUpgrade?: () => void;
@@ -234,6 +240,10 @@ export function ServicePlanCard({
           Upgrade Plan
         </Button>
       </div>
+
+      {name && (
+        <p className="mt-1 truncate text-[13px] text-zinc-500 dark:text-zinc-400">{name}</p>
+      )}
 
       <dl className="mt-4 space-y-2 text-[13px]">
         {stats.map(([label, value, valueClassName]) => (
@@ -376,6 +386,8 @@ export function MultiSubscriptionView({
   footerLabel,
   planName = "Free",
   stats,
+  count = PLACEHOLDER_SUBSCRIPTION_COUNT,
+  getSubscriptionName,
 }: {
   resourceLabel: string;
   onSelectSubscription?: (index: number) => void;
@@ -387,6 +399,13 @@ export function MultiSubscriptionView({
   footerLabel?: ReactNode;
   planName?: string;
   stats?: PlanStat[];
+  // Lets a feature grow its own subscription list (e.g. VPS adding a
+  // new server) instead of always showing the fixed placeholder count.
+  count?: number;
+  // What's actually inside subscription N — a stack name, a database
+  // instance, a server's hostname — shown under the card's title so a
+  // subscription doesn't read as just an empty numbered slot.
+  getSubscriptionName?: (index: number) => ReactNode;
 }) {
   return (
     <div>
@@ -397,7 +416,7 @@ export function MultiSubscriptionView({
           </p>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             {description ||
-              `${PLACEHOLDER_SUBSCRIPTION_COUNT} active — each ${
+              `${count} active — each ${
                 // Acronyms (VPS) stay as-is; ordinary words get lowercased.
                 resourceLabel && resourceLabel === resourceLabel.toUpperCase()
                   ? resourceLabel
@@ -418,10 +437,11 @@ export function MultiSubscriptionView({
       </div>
 
       <div className="mt-5 grid grid-cols-3 gap-5">
-        {Array.from({ length: PLACEHOLDER_SUBSCRIPTION_COUNT }, (_, i) => (
+        {Array.from({ length: count }, (_, i) => (
           <ServicePlanCard
             key={i}
             title={`Subscription ${i + 1}`}
+            name={getSubscriptionName?.(i + 1)}
             resourceLabel={resourceLabel}
             footerLabel={footerLabel}
             planName={planName}

@@ -38,10 +38,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { PILL_TABS_LIST_CLASS, PILL_TAB_TRIGGER_CLASS, SearchField } from "../../components/atoms";
 import {
-  addGroupMember,
   CLOUD_USERS,
+  declineInvite,
+  GROUP_INVITES,
   GROUP_ROLES,
   GROUPS,
+  inviteToGroup,
   PERMISSION_LEVELS,
   PERMISSION_RESOURCES,
   removeGroupMember,
@@ -104,7 +106,8 @@ function InviteUserDrawer({
         <SheetHeader>
           <SheetTitle>Invite User</SheetTitle>
           <SheetDescription>
-            Add an existing Cloud+ account to this group by its Cloud ID.
+            Send an invite to an existing Cloud+ account by its Cloud ID — they're
+            added once they accept it from their own Group Members page.
           </SheetDescription>
         </SheetHeader>
 
@@ -167,7 +170,7 @@ function InviteUserDrawer({
             onClick={submit}
             className="h-9 w-[164px] text-sm"
           >
-            Invite User
+            Send Invite
           </Button>
         </SheetFooter>
       </SheetContent>
@@ -180,8 +183,11 @@ function MemberTab({ group, onChange }: { group: Group; onChange: () => void }) 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Group["members"][number] | null>(null);
 
+  const pendingInvites = GROUP_INVITES.filter((i) => i.groupId === group.id);
   const candidates = CLOUD_USERS.filter(
-    (u) => !group.members.some((m) => m.cloudId === u.cloudId)
+    (u) =>
+      !group.members.some((m) => m.cloudId === u.cloudId) &&
+      !pendingInvites.some((i) => i.cloudId === u.cloudId)
   );
   const visible = group.members.filter(
     (m) =>
@@ -266,12 +272,47 @@ function MemberTab({ group, onChange }: { group: Group; onChange: () => void }) 
         </Table>
       </div>
 
+      {pendingInvites.length > 0 && (
+        <div className="mt-5">
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            Pending Invites
+          </p>
+          <div className="mt-2 divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+            {pendingInvites.map((invite) => {
+              const user = CLOUD_USERS.find((u) => u.cloudId === invite.cloudId);
+              return (
+                <div key={invite.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      {user?.name ?? invite.cloudId}
+                    </p>
+                    <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
+                      Invited as {invite.role} · Awaiting response
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      declineInvite(invite.id);
+                      onChange();
+                    }}
+                    className="text-[13px] font-medium text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
+                  >
+                    Cancel Invite
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <InviteUserDrawer
         open={inviteOpen}
         onOpenChange={setInviteOpen}
         candidates={candidates}
         onInvite={(cloudId, role) => {
-          addGroupMember(group.id, cloudId, role);
+          inviteToGroup(group.id, cloudId, role);
           onChange();
         }}
       />

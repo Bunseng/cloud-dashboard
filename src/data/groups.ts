@@ -32,6 +32,7 @@ export const CLOUD_USERS: CloudUser[] = [
   { cloudId: "CLD-10239", name: "Channary Sok", email: "channary.sok@sabay.com" },
 ];
 
+
 export type GroupRole = "Owner" | "Admin" | "Member";
 export const GROUP_ROLES: GroupRole[] = ["Owner", "Admin", "Member"];
 
@@ -155,4 +156,51 @@ export function setGroupMemberRole(id: string, cloudId: string, role: GroupRole)
 export function saveGroupPermissions(id: string, permissions: GroupPermissions) {
   const group = GROUPS.find((g) => g.id === id);
   if (group) group.permissions = { ...permissions };
+}
+
+/* ------------------------------------------------------------------ *
+ * Invites — inviting someone no longer adds them straight to a Group's
+ * member list; it creates a pending invite they have to accept first,
+ * same as a real "you've been invited" flow. "You" are whichever
+ * CLOUD_USERS entry matches this account, hardcoded since there's no
+ * real auth/session here.
+ * ------------------------------------------------------------------ */
+
+export const CURRENT_CLOUD_ID = "CLD-10235";
+
+export interface GroupInvite {
+  id: string;
+  groupId: string;
+  cloudId: string;
+  role: GroupRole;
+}
+
+let nextInviteId = 1;
+function makeInviteId() {
+  return `inv-${Date.now()}-${nextInviteId++}`;
+}
+
+/* One sample invite waiting for "you" so the Invites tab isn't empty
+   on first load. */
+export const GROUP_INVITES: GroupInvite[] = [
+  { id: "inv-seed-1", groupId: "grp-devops", cloudId: CURRENT_CLOUD_ID, role: "Member" },
+];
+
+export function inviteToGroup(groupId: string, cloudId: string, role: GroupRole) {
+  const invite: GroupInvite = { id: makeInviteId(), groupId, cloudId, role };
+  GROUP_INVITES.push(invite);
+  return invite;
+}
+
+export function acceptInvite(inviteId: string) {
+  const invite = GROUP_INVITES.find((i) => i.id === inviteId);
+  if (!invite) return;
+  addGroupMember(invite.groupId, invite.cloudId, invite.role);
+  const i = GROUP_INVITES.findIndex((inv) => inv.id === inviteId);
+  if (i !== -1) GROUP_INVITES.splice(i, 1);
+}
+
+export function declineInvite(inviteId: string) {
+  const i = GROUP_INVITES.findIndex((inv) => inv.id === inviteId);
+  if (i !== -1) GROUP_INVITES.splice(i, 1);
 }

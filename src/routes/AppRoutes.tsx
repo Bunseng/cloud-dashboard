@@ -9,6 +9,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { Box } from "@/components/animate-ui/icons/box";
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
 import { Database } from "@/components/animate-ui/icons/database";
 import { Layers } from "@/components/animate-ui/icons/layers";
 import { Plus } from "@/components/animate-ui/icons/plus";
@@ -27,10 +28,12 @@ import { PLACEHOLDER_SUBSCRIPTION_COUNT, WALLET_TABS } from "../data/billing";
 import { usePlanSchedule } from "../context/PlanScheduleContext";
 
 import { HomePage } from "../pages/HomePage";
+import ProjectsPage from "../pages/ProjectsPage";
 import { PlanningPage } from "../pages/PlanningPage";
 import { BillingPage } from "../pages/BillingPage";
 import { PaymentPage } from "../pages/PaymentPage";
 import { ProfilePage } from "../pages/ProfilePage";
+import { ApiTokensPage } from "../pages/ApiTokensPage";
 import { TopUpPage } from "../pages/TopUpPage";
 import { SubscribePage } from "../pages/SubscribePage";
 import { LogOutPage } from "../pages/LogOutPage";
@@ -42,6 +45,8 @@ import { PRICING_CATEGORIES, SERVICE_PRICING, type PricingCategory, type Pricing
 // otherwise Database's own narrow animation-trigger type doesn't line up
 // with SubscribePage's broader `icon` prop type.
 const DATABASE_BACKUP_ICON: PricingCategory["icon"] = Database;
+// Same workaround, same reason, for VPS Snapshot's add-on subscription.
+const VPS_SNAPSHOT_ICON: PricingCategory["icon"] = Server;
 
 import { StoragePanel, StorageUsagePanel } from "../pages/storage/StoragePanel";
 import { CreateBucketDialog } from "../pages/storage/BucketDialogs";
@@ -74,13 +79,24 @@ import {
 } from "../pages/vps/VpsInstanceDetailPage";
 import { VpsMonitoringPage } from "../pages/vps/VpsMonitoringPage";
 import { VpsSnapshotsPage } from "../pages/vps/VpsSnapshotsPage";
-import { CreateVpsPage, VPS_PROVISIONED, type VpsCreateResult } from "../pages/vps/CreateVpsPage";
+import { VpsInstanceSnapshotsPage } from "../pages/vps/VpsInstanceSnapshotsPage";
+import { useVpsSnapshot } from "../pages/vps/VpsSnapshotContext";
+import {
+  addVpsSubscription,
+  CreateVpsPage,
+  VPS_PROVISIONED,
+  VPS_SUBSCRIPTION_COUNT,
+  type VpsCreateResult,
+} from "../pages/vps/CreateVpsPage";
 
 /* Subscription 3 is the one VPS subscription whose server hasn't been
    provisioned yet — visiting it shows CreateVpsPage (same idea as Run
    App's empty Stack List prompting "Create Stack") instead of a
-   ready-made instance, until you actually create one. */
+   ready-made instance, until you actually create one. Any subscription
+   added later via "New Subscription" starts the same way — unprovisioned
+   until its own Create VPS form is filled in. */
 const UNPROVISIONED_VPS_INSTANCE = "VPS Instance 3";
+const BASE_VPS_SUBSCRIPTION_COUNT = 3;
 
 import { GroupsListPage } from "../pages/groups/GroupsListPage";
 import { GroupDetailPage } from "../pages/groups/GroupDetailPage";
@@ -246,6 +262,7 @@ function SubscribeRoute() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { subscribe, addBackup } = useDatabaseBackup();
+  const { subscribe: subscribeSnapshot } = useVpsSnapshot();
   const { schedule, cancelSchedule } = usePlanSchedule();
 
   // Database Backup is its own add-on subscription, not one of the real
@@ -299,6 +316,48 @@ function SubscribeRoute() {
                   }),
                 });
               }
+            }
+          }
+          navigate(returnTo);
+        }}
+        onCancel={() => navigate(returnTo)}
+      />
+    );
+  }
+
+  // VPS Snapshot — its own add-on subscription, not one of the real
+  // services listed on Planning/Public Pricing, always scoped to one
+  // specific VPS instance (?instance= — every entry point into this
+  // flow is that instance's own Snapshots page auto-redirecting here).
+  // Unlike Database's Backup, subscribing only unlocks the ability to
+  // take a snapshot — it doesn't capture one for you; the user still
+  // creates each one deliberately via "Create Snapshot".
+  if (category === "vpsSnapshot") {
+    const returnTo = searchParams.get("return") || "/vps/snapshots";
+    const instanceForSnapshot = searchParams.get("instance");
+    const isSnapshotUpgrade = Boolean(searchParams.get("upgrade"));
+    return (
+      <SubscribePage
+        categoryKey="vpsSnapshot"
+        categoryLabel="VPS Snapshot"
+        icon={VPS_SNAPSHOT_ICON}
+        initialTierId={tierId ?? "basic"}
+        mode={isSnapshotUpgrade ? "upgrade" : "new"}
+        onDone={(purchasedTierId, scheduledDate) => {
+          if (instanceForSnapshot) {
+            const key = `vpsSnapshot:${instanceForSnapshot}`;
+            if (scheduledDate) {
+              // Scheduled — leave the current plan (if any) running as-is
+              // and just record when it'll change; nothing to subscribe
+              // yet.
+              schedule(key, {
+                tierId: purchasedTierId,
+                tierName: tierNameFor("vpsSnapshot", purchasedTierId),
+                date: scheduledDate,
+              });
+            } else {
+              cancelSchedule(key);
+              subscribeSnapshot(instanceForSnapshot, purchasedTierId);
             }
           }
           navigate(returnTo);
@@ -435,6 +494,10 @@ function RunAppRoute() {
             footerLabel="View Stack List"
             planName="Basic"
             stats={RUNAPP_PLAN_STATS}
+            getSubscriptionName={(n) => {
+              const names = STACK_ROWS.filter((s) => s.subscriptionNumber === n).map((s) => s.name);
+              return names.length > 0 ? names.join(", ") : "No stack";
+            }}
             onSelectSubscription={(n: number) => navigate(`/runapp/${n}`)}
             onNewSubscription={() => navigate("/planning")}
             onUpgrade={(n: number) =>
@@ -489,7 +552,10 @@ function CreateRunAppRoute() {
     <CreateRunAppPage
       onBack={() => navigate(`/runapp/${subNumber}`)}
       onCreate={(stack) =>
-        navigate(`/runapp/${subNumber}`, { replace: true, state: { createdStack: stack } })
+        navigate(`/runapp/${subNumber}`, {
+          replace: true,
+          state: { createdStack: { ...stack, subscriptionNumber: Number(subNumber) } },
+        })
       }
     />
   );
@@ -561,6 +627,41 @@ function ServiceDetailRoute() {
   );
 }
 
+function ProjectsRoute() {
+  const navigate = useNavigate();
+  return (
+    <ProjectsPage
+      onViewProject={(projectName: string) => navigate(`/projects/${encodeURIComponent(projectName)}`)}
+    />
+  );
+}
+
+function ProjectServiceListRoute() {
+  const { projectName } = useParams<{ projectName: string }>();
+  const navigate = useNavigate();
+  return (
+    <ServiceListPage
+      stackName={decodeURIComponent(projectName ?? "")}
+      onBack={() => navigate("/projects")}
+      onViewService={(serviceName: string) =>
+        navigate(`/projects/${projectName}/${encodeURIComponent(serviceName)}`)
+      }
+    />
+  );
+}
+
+function ProjectServiceDetailRoute() {
+  const { projectName, serviceName } = useParams<{ projectName: string; serviceName: string }>();
+  const navigate = useNavigate();
+  return (
+    <ServiceDetailPage
+      stackName={decodeURIComponent(projectName ?? "")}
+      serviceName={decodeURIComponent(serviceName ?? "")}
+      onBack={() => navigate(`/projects/${projectName}`)}
+    />
+  );
+}
+
 function DatabaseRoute() {
   const navigate = useNavigate();
   const { isFirstUser } = useFirstUser();
@@ -587,6 +688,12 @@ function DatabaseRoute() {
             footerLabel="View Instance"
             planName="Standard"
             stats={DATABASE_SUBSCRIPTION_STATS}
+            getSubscriptionName={(n) => {
+              const instance = DATABASE_INSTANCES[`DB Instance ${n}`];
+              return instance
+                ? `${instance.name} · ${instance.engine.language} ${instance.engine.version}`
+                : "No Database Instance";
+            }}
             onSelectSubscription={(n: number) =>
               navigate(`/database/${encodeURIComponent(`DB Instance ${n}`)}`)
             }
@@ -642,6 +749,9 @@ function VpsRoute() {
   const { isFirstUser } = useFirstUser();
   const subscribeNavigate = useSubscribeNavigate();
   const { getSchedule, cancelSchedule } = usePlanSchedule();
+  // Seeded once from the shared counter — grows when "New Subscription"
+  // actually adds one, same "no backend" convention as every other list.
+  const [subscriptionCount, setSubscriptionCount] = useState(() => VPS_SUBSCRIPTION_COUNT);
   return (
     <>
       <h1 className="text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
@@ -659,14 +769,23 @@ function VpsRoute() {
         ) : (
           <MultiSubscriptionView
             resourceLabel="VPS"
-            description={`${PLACEHOLDER_SUBSCRIPTION_COUNT} active — each subscription is one full root-access server.`}
+            count={subscriptionCount}
+            description={`${subscriptionCount} active — each subscription is one full root-access server.`}
             footerLabel="View Server"
             planName="Standard"
             stats={VPS_SUBSCRIPTION_STATS}
+            getSubscriptionName={(n) => {
+              const name = `VPS Instance ${n}`;
+              return VPS_PROVISIONED[name]?.hostname ?? VPS_INSTANCES[name]?.hostname ?? "No VPS Instance";
+            }}
             onSelectSubscription={(n: number) =>
               navigate(`/vps/${encodeURIComponent(`VPS Instance ${n}`)}`)
             }
-            onNewSubscription={() => navigate("/planning")}
+            onNewSubscription={() => {
+              const n = addVpsSubscription();
+              setSubscriptionCount(n);
+              navigate(`/vps/${encodeURIComponent(`VPS Instance ${n}`)}`);
+            }}
             onUpgrade={(n: number) =>
               navigate(
                 `/subscribe/vps/standard?upgrade=1&instance=${encodeURIComponent(`VPS Instance ${n}`)}`
@@ -701,17 +820,53 @@ function VpsInstanceRoute() {
   const [provisioned, setProvisioned] = useState<VpsCreateResult | null>(
     () => VPS_PROVISIONED[decodedName] ?? null
   );
+  const [creating, setCreating] = useState(false);
+  const { subscribe: subscribeSnapshot } = useVpsSnapshot();
 
-  if (decodedName === UNPROVISIONED_VPS_INSTANCE && !provisioned) {
+  const instanceNumber = Number(decodedName.replace("VPS Instance ", ""));
+  const isUnprovisionedByDefault =
+    decodedName === UNPROVISIONED_VPS_INSTANCE ||
+    (Number.isFinite(instanceNumber) && instanceNumber > BASE_VPS_SUBSCRIPTION_COUNT);
+
+  if (isUnprovisionedByDefault && !provisioned) {
+    if (creating) {
+      return (
+        <CreateVpsPage
+          instanceName={decodedName}
+          onBack={() => setCreating(false)}
+          onCreate={(result) => {
+            VPS_PROVISIONED[decodedName] = result;
+            setProvisioned(result);
+            if (result.snapshotEnabled) {
+              subscribeSnapshot(decodedName, result.snapshotTierId ?? "basic");
+            }
+          }}
+        />
+      );
+    }
     return (
-      <CreateVpsPage
-        instanceName={decodedName}
-        onBack={() => navigate("/vps")}
-        onCreate={(result) => {
-          VPS_PROVISIONED[decodedName] = result;
-          setProvisioned(result);
-        }}
-      />
+      <div>
+        <button
+          type="button"
+          onClick={() => navigate("/vps")}
+          className="flex items-center gap-1.5 text-sm font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
+        >
+          <ChevronLeft className="h-4 w-4" animateOnHover animateOnTap />
+          Back to Subscriptions
+        </button>
+        <h1 className="mt-5 text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
+          {decodedName}
+        </h1>
+        <div className="mt-7">
+          <EmptyState
+            icon={Server}
+            title="No server yet"
+            description={`${decodedName}'s subscription is active, but its server hasn't been created yet.`}
+            actionLabel="Create VPS"
+            onAction={() => setCreating(true)}
+          />
+        </div>
+      </div>
     );
   }
 
@@ -723,9 +878,22 @@ function VpsInstanceRoute() {
         navigate(`/subscribe/vps/standard?upgrade=1&instance=${encodeURIComponent(decodedName)}`)
       }
       onMonitoring={() => navigate(`/vps/${encodeURIComponent(decodedName)}/monitoring`)}
+      onOpenSnapshots={() => navigate(`/vps/${encodeURIComponent(decodedName)}/snapshots`)}
       overrides={provisioned ?? undefined}
       scheduledUpgrade={getSchedule(scheduleKey)}
       onCancelSchedule={() => cancelSchedule(scheduleKey)}
+    />
+  );
+}
+
+function VpsInstanceSnapshotsRoute() {
+  const { instanceName } = useParams<{ instanceName: string }>();
+  const navigate = useNavigate();
+  const decodedName = decodeURIComponent(instanceName ?? "");
+  return (
+    <VpsInstanceSnapshotsPage
+      instanceName={decodedName}
+      onBack={() => navigate(`/vps/${encodeURIComponent(decodedName)}`)}
     />
   );
 }
@@ -783,9 +951,13 @@ export default function DashboardPage() {
         <Route path="/" element={<HomeRoute />} />
         <Route path="/dashboard" element={<Navigate to={`/dashboard/${FEATURES[0].id}`} replace />} />
         <Route path="/dashboard/:tab" element={<DashboardRoute />} />
+        <Route path="/projects" element={<ProjectsRoute />} />
+        <Route path="/projects/:projectName" element={<ProjectServiceListRoute />} />
+        <Route path="/projects/:projectName/:serviceName" element={<ProjectServiceDetailRoute />} />
         <Route path="/planning" element={<PlanningPage />} />
         <Route path="/payment" element={<PaymentRoute />} />
         <Route path="/profile" element={<ProfileRoute />} />
+        <Route path="/api-tokens" element={<ApiTokensPage />} />
         <Route path="/billing" element={<Navigate to={`/billing/${WALLET_TABS[0].key}`} replace />} />
         <Route path="/billing/:tab" element={<BillingRoute />} />
         <Route path="/topup" element={<TopUpRoute />} />
@@ -805,6 +977,7 @@ export default function DashboardPage() {
         <Route path="/vps" element={<VpsRoute />} />
         <Route path="/vps/snapshots" element={<VpsSnapshotsPage />} />
         <Route path="/vps/:instanceName" element={<VpsInstanceRoute />} />
+        <Route path="/vps/:instanceName/snapshots" element={<VpsInstanceSnapshotsRoute />} />
         <Route path="/vps/:instanceName/monitoring" element={<VpsMonitoringRoute />} />
         <Route path="/groups" element={<GroupsRoute />} />
         <Route path="/groups/:groupId" element={<GroupDetailRoute />} />

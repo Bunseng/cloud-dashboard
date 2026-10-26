@@ -25,25 +25,35 @@ import { CreateServiceDrawer, type NewServiceFields } from "./RunAppDialogs";
  * without touching the table itself.
  * ------------------------------------------------------------------ */
 
-/* Sample rows — replace with API data. */
+/* Sample rows — replace with API data. `projectId` ties each stack to
+   one of data/projects.ts's Projects, so the list can filter down to
+   just the active Project's stacks. `subscriptionNumber` ties it to one
+   of Run App's own "Subscription N" slots, so each subscription shows
+   only its own stacks instead of every stack in the account. */
 export const STACK_ROWS = [
   {
     id: "stk-1",
     name: "web-frontend",
     status: { label: "Running", tone: "green" },
     serviceCount: 3,
+    projectId: "proj-web",
+    subscriptionNumber: 1,
   },
   {
     id: "stk-2",
     name: "api-gateway",
     status: { label: "Deploying", tone: "blue" },
     serviceCount: 2,
+    projectId: "proj-api",
+    subscriptionNumber: 2,
   },
   {
     id: "stk-3",
     name: "worker-queue",
     status: { label: "Stopped", tone: "zinc" },
     serviceCount: 1,
+    projectId: "proj-worker",
+    subscriptionNumber: 3,
   },
 ];
 
@@ -312,6 +322,16 @@ export function StackListPage({
       : base;
   });
 
+  // Filters the visible list down to this subscription's own stacks —
+  // doesn't touch `rows` itself so status updates still apply correctly
+  // if you switch to a different subscription mid-deploy. Each stack
+  // belongs to exactly one subscription now, so there's no longer a
+  // separate Project filter stacked on top here — that would just hide
+  // a subscription's only stack whenever a different Project happens to
+  // be active elsewhere.
+  const subscriptionNum = Number(subscriptionNumber);
+  const visibleRows = rows.filter((r) => r.subscriptionNumber === subscriptionNum);
+
   // Pull & Re-deploy / Pull & Restart flip a stack to "Deploying" and
   // settle back to "Running" a moment later, mirroring how a real deploy
   // would report status — cleaned up on unmount so a route change can't
@@ -348,7 +368,7 @@ export function StackListPage({
         <div className="min-w-0 flex-1">
           <ResourceListView
             columns={STACK_COLUMNS}
-            rows={rows}
+            rows={visibleRows}
             createLabel="New Stack"
             emptyTitle="No stacks yet"
             emptyDescription="Deploy your first stack and it will show up here."

@@ -34,6 +34,7 @@ export type PricingServiceKey =
   | "database"
   | "databaseBackup"
   | "vps"
+  | "vpsSnapshot"
   | "cms";
 
 export type ServicePricing = Record<PricingServiceKey, PricingPlan[]>;
@@ -380,6 +381,61 @@ export const SERVICE_PRICING: ServicePricing = {
       specs: [
         ["Backup Frequency", "Every 1 Hour"],
         ["Retention", "99999 Days"],
+      ],
+    },
+  ],
+  /* Automated snapshots for a VPS instance — its own add-on subscription
+     (not a VPS tier), same shape as Database Backup: not listed on
+     Planning/Public Pricing; only the VPS → Snapshots page and its
+     Subscribe flow read from this. */
+  vpsSnapshot: [
+    {
+      id: "basic",
+      name: "Basic",
+      priceKHR: 18810,
+      period: "mo",
+      description: "Take on-demand snapshots of your server for maximum protection.",
+      specs: [
+        ["Snapshot Frequency", "Once-Daily"],
+        ["Retention", "7 Days"],
+        ["Max Snapshots", "5"],
+      ],
+    },
+    {
+      id: "standard",
+      name: "Standard",
+      priceKHR: 75900,
+      period: "mo",
+      description: "Take on-demand snapshots of your server for maximum protection.",
+      specs: [
+        ["Snapshot Frequency", "Every 1 Hour"],
+        ["Retention", "30 Days"],
+        ["Max Snapshots", "20"],
+      ],
+    },
+    {
+      id: "premium",
+      name: "Premium",
+      priceKHR: 133100,
+      period: "mo",
+      popular: true,
+      description: "Take on-demand snapshots of your server for maximum protection.",
+      specs: [
+        ["Snapshot Frequency", "Every 1 Hour"],
+        ["Retention", "365 Days"],
+        ["Max Snapshots", "100"],
+      ],
+    },
+    {
+      id: "enterprise",
+      name: "Enterprise",
+      priceKHR: 311300,
+      period: "mo",
+      description: "Take on-demand snapshots of your server for maximum protection.",
+      specs: [
+        ["Snapshot Frequency", "Every 1 Hour"],
+        ["Retention", "99999 Days"],
+        ["Max Snapshots", "Unlimited"],
       ],
     },
   ],
