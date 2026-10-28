@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { CircleCheck } from "@/components/animate-ui/icons/circle-check";
 import { Plus } from "@/components/animate-ui/icons/plus";
 import { Save } from "@/components/animate-ui/icons/save";
 import { Trash2 } from "@/components/animate-ui/icons/trash-2";
@@ -40,6 +41,7 @@ import { PILL_TABS_LIST_CLASS, PILL_TAB_TRIGGER_CLASS, SearchField } from "../..
 import {
   CLOUD_USERS,
   declineInvite,
+  DEFAULT_PERMISSIONS,
   GROUP_INVITES,
   GROUP_ROLES,
   GROUPS,
@@ -49,10 +51,13 @@ import {
   removeGroupMember,
   renameGroup,
   saveGroupPermissions,
+  saveGroupProjectPermissions,
   type Group,
   type GroupPermissions,
   type GroupRole,
+  type PermissionLevel,
 } from "../../data/groups";
+import { PROJECTS } from "../../data/projects";
 
 /* ------------------------------------------------------------------ *
  * Group detail — Member / Permission / Setting, the same three
@@ -68,18 +73,23 @@ const ROLE_TONE: Record<GroupRole, string> = {
   Member: "text-zinc-600 dark:text-zinc-400",
 };
 
-/* Invite User — right-side Drawer. Members are added by picking an
-   existing Cloud ID rather than typing an email, so a Group can only
-   ever contain real Cloud+ accounts. */
+/* Invite User — right-side Drawer. A member is added by typing an
+   existing Cloud+ account's Cloud ID rather than picking from a list
+   (there's no directory browse here, same as inviting someone to a
+   Slack workspace by their handle) — the ID is validated against real
+   accounts as soon as it's typed, so a Group can only ever contain
+   real Cloud+ accounts and you find out immediately if it's wrong. */
 function InviteUserDrawer({
   open,
   onOpenChange,
-  candidates,
+  existingMemberIds,
+  pendingInviteIds,
   onInvite,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  candidates: typeof CLOUD_USERS;
+  existingMemberIds: string[];
+  pendingInviteIds: string[];
   onInvite: (cloudId: string, role: GroupRole) => void;
 }) {
   const [cloudId, setCloudId] = useState("");
@@ -87,16 +97,22 @@ function InviteUserDrawer({
 
   useEffect(() => {
     if (open) {
-      setCloudId(candidates[0]?.cloudId ?? "");
+      setCloudId("");
       setRole("Member");
     }
-  }, [open, candidates]);
+  }, [open]);
 
-  const valid = Boolean(cloudId);
+  const trimmedId = cloudId.trim();
+  const matchedUser = trimmedId
+    ? CLOUD_USERS.find((u) => u.cloudId.toLowerCase() === trimmedId.toLowerCase())
+    : undefined;
+  const alreadyMember = Boolean(matchedUser && existingMemberIds.includes(matchedUser.cloudId));
+  const alreadyInvited = Boolean(matchedUser && pendingInviteIds.includes(matchedUser.cloudId));
+  const valid = Boolean(matchedUser) && !alreadyMember && !alreadyInvited;
 
   function submit() {
-    if (!valid) return;
-    onInvite(cloudId, role);
+    if (!valid || !matchedUser) return;
+    onInvite(matchedUser.cloudId, role);
     onOpenChange(false);
   }
 
@@ -113,27 +129,43 @@ function InviteUserDrawer({
 
         <div className="mt-3 flex-1 space-y-5 overflow-y-auto">
           <div>
-            <Label className="text-zinc-900 dark:text-zinc-100">
+            <Label htmlFor="invite-cloud-id" className="text-zinc-900 dark:text-zinc-100">
               Cloud ID<span className="ml-0.5 text-red-500">*</span>
             </Label>
-            {candidates.length > 0 ? (
-              <Select value={cloudId} onValueChange={setCloudId}>
-                <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Select a Cloud ID" />
-                </SelectTrigger>
-                <SelectContent>
-                  {candidates.map((u) => (
-                    <SelectItem key={u.cloudId} value={u.cloudId}>
-                      {u.name} · {u.cloudId}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <p className="mt-2 text-[13px] text-zinc-500 dark:text-zinc-400">
-                Every Cloud+ account is already a member of this group.
-              </p>
-            )}
+            <Input
+              id="invite-cloud-id"
+              autoFocus
+              value={cloudId}
+              onChange={(e) => setCloudId(e.target.value)}
+              placeholder="e.g. CLD-10234"
+              className="mt-2 font-mono text-[13px]"
+            />
+            {trimmedId &&
+              (matchedUser ? (
+                alreadyMember ? (
+                  <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                    {matchedUser.name} is already a member of this group.
+                  </p>
+                ) : alreadyInvited ? (
+                  <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                    An invite is already pending for {matchedUser.name}.
+                  </p>
+                ) : (
+                  <div className="mt-2 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/30">
+                    <CircleCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {matchedUser.name}
+                      </p>
+                      <p className="truncate text-[12px] text-zinc-500 dark:text-zinc-400">
+                        {matchedUser.email}
+                      </p>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <p className="mt-2 text-xs text-red-500">No Cloud+ account found with this ID.</p>
+              ))}
           </div>
 
           <div>
@@ -184,11 +216,6 @@ function MemberTab({ group, onChange }: { group: Group; onChange: () => void }) 
   const [removeTarget, setRemoveTarget] = useState<Group["members"][number] | null>(null);
 
   const pendingInvites = GROUP_INVITES.filter((i) => i.groupId === group.id);
-  const candidates = CLOUD_USERS.filter(
-    (u) =>
-      !group.members.some((m) => m.cloudId === u.cloudId) &&
-      !pendingInvites.some((i) => i.cloudId === u.cloudId)
-  );
   const visible = group.members.filter(
     (m) =>
       !search.trim() ||
@@ -310,7 +337,8 @@ function MemberTab({ group, onChange }: { group: Group; onChange: () => void }) 
       <InviteUserDrawer
         open={inviteOpen}
         onOpenChange={setInviteOpen}
-        candidates={candidates}
+        existingMemberIds={group.members.map((m) => m.cloudId)}
+        pendingInviteIds={pendingInvites.map((i) => i.cloudId)}
         onInvite={(cloudId, role) => {
           inviteToGroup(group.id, cloudId, role);
           onChange();
@@ -336,69 +364,144 @@ function MemberTab({ group, onChange }: { group: Group; onChange: () => void }) 
   );
 }
 
+const BILLING_RESOURCE = PERMISSION_RESOURCES.find((r) => r.key === "billing")!;
+const PROJECT_RESOURCES = PERMISSION_RESOURCES.filter((r) => r.key !== "billing");
+
 function PermissionTab({ group, onChange }: { group: Group; onChange: () => void }) {
-  const [draft, setDraft] = useState<GroupPermissions>({ ...group.permissions });
-  const dirty = JSON.stringify(draft) !== JSON.stringify(group.permissions);
+  const [selectedProjectId, setSelectedProjectId] = useState(PROJECTS[0]?.id ?? "");
+  const [billingDraft, setBillingDraft] = useState<PermissionLevel>(group.permissions.billing);
+  const [projectDraft, setProjectDraft] = useState<Record<string, GroupPermissions>>({
+    ...group.projectPermissions,
+  });
+  const selectedProject = PROJECTS.find((p) => p.id === selectedProjectId);
+  const selectedProjectPermissions = projectDraft[selectedProjectId] ?? DEFAULT_PERMISSIONS;
+  const availableResources = PROJECT_RESOURCES.filter((r) =>
+    selectedProject?.services.includes(r.key)
+  );
+  const dirty =
+    billingDraft !== group.permissions.billing ||
+    JSON.stringify(projectDraft) !== JSON.stringify(group.projectPermissions);
+
+  function setResourceLevel(key: typeof availableResources[number]["key"], level: PermissionLevel) {
+    setProjectDraft((prev) => ({
+      ...prev,
+      [selectedProjectId]: { ...(prev[selectedProjectId] ?? DEFAULT_PERMISSIONS), [key]: level },
+    }));
+  }
 
   return (
     <div className="mt-5 space-y-5">
       <Card>
-        <CardTitle>Resource Access</CardTitle>
+        <CardTitle>Project Access</CardTitle>
         <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-          Every member of this group inherits exactly this access — set it once
-          here instead of per person.
+          Pick a project to control exactly what this group can do to each of its
+          services — every member inherits this access, set once here instead of
+          per person.
         </p>
 
-        <div className="mt-4 divide-y divide-zinc-200 dark:divide-zinc-800">
-          {PERMISSION_RESOURCES.map((resource) => (
-            <div
-              key={resource.key}
-              className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  {resource.label}
-                </p>
-                <p className="mt-0.5 text-[13px] text-zinc-500 dark:text-zinc-400">
-                  {resource.description}
-                </p>
-              </div>
-              <Select
-                value={draft[resource.key]}
-                onValueChange={(v) =>
-                  setDraft((prev) => ({ ...prev, [resource.key]: v as GroupPermissions[typeof resource.key] }))
-                }
-              >
-                <SelectTrigger className="h-9 w-[160px] shrink-0 text-[13px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERMISSION_LEVELS.map((level) => (
-                    <SelectItem key={level} value={level}>
-                      {level}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ))}
+        <div className="mt-4">
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Project</p>
+          <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+            <SelectTrigger className="mt-2 h-9 w-full max-w-[280px] text-[13px]">
+              <SelectValue placeholder="Select a project" />
+            </SelectTrigger>
+            <SelectContent>
+              {PROJECTS.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="mt-5 flex justify-end">
-          <Button
-            variant="brand"
-            disabled={!dirty}
-            onClick={() => {
-              saveGroupPermissions(group.id, draft);
-              onChange();
-            }}
-            className="h-9 gap-1.5 px-4 text-sm"
-          >
-            <Save className="h-3.5 w-3.5" animateOnHover animateOnTap />
-            Save Permissions
-          </Button>
+        {availableResources.length === 0 ? (
+          <p className="mt-5 rounded-lg border border-dashed border-zinc-200 px-3 py-4 text-[13px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+            {selectedProject
+              ? `${selectedProject.name} has no services enabled yet — nothing to grant access to.`
+              : "No projects yet — create one first."}
+          </p>
+        ) : (
+          <div className="mt-5 divide-y divide-zinc-200 dark:divide-zinc-800">
+            {availableResources.map((resource) => (
+              <div
+                key={resource.key}
+                className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {resource.label}
+                  </p>
+                  <p className="mt-0.5 text-[13px] text-zinc-500 dark:text-zinc-400">
+                    {resource.description}
+                  </p>
+                </div>
+                <Select
+                  value={selectedProjectPermissions[resource.key]}
+                  onValueChange={(v) => setResourceLevel(resource.key, v as PermissionLevel)}
+                >
+                  <SelectTrigger className="h-9 w-[160px] shrink-0 text-[13px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERMISSION_LEVELS.map((level) => (
+                      <SelectItem key={level} value={level}>
+                        {level}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Billing is account-level, not tied to any one project — its own
+          row rather than something that changes as you switch projects. */}
+      <Card>
+        <CardTitle>Account Access</CardTitle>
+        <div className="mt-4 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              {BILLING_RESOURCE.label}
+            </p>
+            <p className="mt-0.5 text-[13px] text-zinc-500 dark:text-zinc-400">
+              {BILLING_RESOURCE.description}
+            </p>
+          </div>
+          <Select value={billingDraft} onValueChange={(v) => setBillingDraft(v as PermissionLevel)}>
+            <SelectTrigger className="h-9 w-[160px] shrink-0 text-[13px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERMISSION_LEVELS.map((level) => (
+                <SelectItem key={level} value={level}>
+                  {level}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </Card>
+
+      <div className="flex justify-end">
+        <Button
+          variant="brand"
+          disabled={!dirty}
+          onClick={() => {
+            saveGroupPermissions(group.id, { ...group.permissions, billing: billingDraft });
+            if (selectedProjectId) {
+              saveGroupProjectPermissions(group.id, selectedProjectId, selectedProjectPermissions);
+            }
+            onChange();
+          }}
+          className="h-9 gap-1.5 px-4 text-sm"
+        >
+          <Save className="h-3.5 w-3.5" animateOnHover animateOnTap />
+          Save Permissions
+        </Button>
+      </div>
     </div>
   );
 }

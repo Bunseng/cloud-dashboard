@@ -68,7 +68,9 @@ export function VpsSnapshotsPage() {
         {INSTANCE_NAMES.map((name) => {
           const tierId = getTierId(name);
           const plan = SERVICE_PRICING.vpsSnapshot.find((t) => t.id === tierId);
-          const snapshotsPath = `/vps/${encodeURIComponent(name)}/snapshots`;
+          // The Snapshots tab lives on the instance's own detail page now,
+          // not a separate route.
+          const snapshotsPath = `/vps/${encodeURIComponent(name)}`;
 
           if (!isSubscribed(name) || !plan) {
             return (

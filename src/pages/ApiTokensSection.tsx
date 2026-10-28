@@ -162,9 +162,7 @@ function IpRowInputs({
 function expiryDescription(expiry: TokenExpiry): string {
   if (expiry.preset === "none") return "Never expires";
   if (expiry.preset === "custom") {
-    return expiry.startDate && expiry.endDate
-      ? `Active from ${expiry.startDate} to ${expiry.endDate}`
-      : "Custom date range (incomplete)";
+    return expiry.endDate ? `Expires on ${expiry.endDate}` : "Custom expiration (incomplete)";
   }
   return `Expires ${TOKEN_EXPIRY_PRESETS.find((p) => p.value === expiry.preset)?.label.toLowerCase()} from creation`;
 }
@@ -187,18 +185,17 @@ function CreateApiTokenView({
   const [name, setName] = useState(() => generateTokenName());
   const [permissions, setPermissions] = useState<GroupPermissions>({ ...DEFAULT_PERMISSIONS });
   const [expiryPreset, setExpiryPreset] = useState<TokenExpiryPreset>("none");
-  const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [ipMode, setIpMode] = useState<IpFilterMode>("allow");
   const [ipAddresses, setIpAddresses] = useState<string[]>([]);
   const [summaryTab, setSummaryTab] = useState("summary");
 
   const expiry: TokenExpiry =
-    expiryPreset === "custom" ? { preset: "custom", startDate, endDate } : { preset: expiryPreset };
+    expiryPreset === "custom" ? { preset: "custom", endDate } : { preset: expiryPreset };
   const ipFilter: TokenIpFilter = { mode: ipMode, addresses: ipAddresses.filter((a) => a.trim()) };
   const grantedPermissions = PERMISSION_RESOURCES.filter((r) => permissions[r.key] !== "No Access");
   const trimmedName = name.trim();
-  const customIncomplete = expiryPreset === "custom" && (!startDate || !endDate);
+  const customIncomplete = expiryPreset === "custom" && !endDate;
   const valid = Boolean(trimmedName) && !customIncomplete;
 
   const jsonPayload = JSON.stringify(
@@ -206,7 +203,6 @@ function CreateApiTokenView({
       name: trimmedName || "untitled-token",
       policies: grantedPermissions.map((r) => ({ resource: r.key, permission: permissions[r.key] })),
       expires_on: expiry.preset === "none" ? null : expiry.preset === "custom" ? expiry.endDate : expiry.preset,
-      not_before: expiry.preset === "custom" ? expiry.startDate : null,
       condition: {
         request_ip: { [ipFilter.mode === "allow" ? "in" : "not_in"]: ipFilter.addresses },
       },
@@ -372,31 +368,17 @@ ${expiry.preset !== "none" ? `  expires_on = "${expiry.preset === "custom" ? exp
             </Select>
 
             {expiryPreset === "custom" && (
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="token-start-date" className="text-[13px] text-zinc-600 dark:text-zinc-400">
-                    Start Date
-                  </Label>
-                  <Input
-                    id="token-start-date"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="mt-1.5"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="token-end-date" className="text-[13px] text-zinc-600 dark:text-zinc-400">
-                    End Date
-                  </Label>
-                  <Input
-                    id="token-end-date"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="mt-1.5"
-                  />
-                </div>
+              <div className="mt-3">
+                <Label htmlFor="token-end-date" className="text-[13px] text-zinc-600 dark:text-zinc-400">
+                  End Date
+                </Label>
+                <Input
+                  id="token-end-date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="mt-1.5"
+                />
               </div>
             )}
           </Card>

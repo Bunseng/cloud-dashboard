@@ -8,12 +8,18 @@
  * "no backend" convention as paymentMethods.ts/groups.ts).
  * ------------------------------------------------------------------ */
 
+import type { PermissionResourceKey } from "./groups";
+
 export interface Project {
   id: string;
   name: string;
   status: { label: string; tone: string };
   serviceCount: number;
   createdOn: string;
+  // Which of Storage/Run App/Database/VPS this project actually uses —
+  // drives what a Group's Permission tab offers to control once this
+  // project is selected, rather than listing every service account-wide.
+  services: PermissionResourceKey[];
 }
 
 let nextProjectId = 1;
@@ -29,6 +35,7 @@ export const PROJECTS: Project[] = [
     status: { label: "Running", tone: "green" },
     serviceCount: 3,
     createdOn: "Aug 2, 2026",
+    services: ["storage", "runapp"],
   },
   {
     id: "proj-api",
@@ -36,6 +43,7 @@ export const PROJECTS: Project[] = [
     status: { label: "Deploying", tone: "blue" },
     serviceCount: 2,
     createdOn: "Jul 20, 2026",
+    services: ["runapp", "database"],
   },
   {
     id: "proj-worker",
@@ -43,6 +51,7 @@ export const PROJECTS: Project[] = [
     status: { label: "Stopped", tone: "zinc" },
     serviceCount: 1,
     createdOn: "Jun 14, 2026",
+    services: ["database", "vps"],
   },
 ];
 
@@ -59,6 +68,7 @@ export function createProject(name: string): Project {
       day: "numeric",
       year: "numeric",
     }),
+    services: [],
   };
   PROJECTS.push(project);
   return project;

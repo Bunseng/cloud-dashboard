@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
   acceptInvite,
+  countGrantedPermissions,
   createGroup,
   CURRENT_CLOUD_ID,
   declineInvite,
@@ -40,7 +41,7 @@ const GROUP_COLUMNS = [
     key: "permissions",
     header: "Resource Access",
     render: (row: Group) => {
-      const count = Object.values(row.permissions).filter((p) => p !== "No Access").length;
+      const count = countGrantedPermissions(row);
       return count === 0 ? "No access granted" : `${count} resource${count === 1 ? "" : "s"}`;
     },
   },
@@ -173,7 +174,9 @@ export function GroupsListPage({ onViewGroup }: { onViewGroup: (id: string) => v
       <CreateGroupDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreate={(name) => setGroups((prev) => [...prev, createGroup(name)])}
+        onCreate={(name, permissions, projectPermissions) =>
+          setGroups((prev) => [...prev, createGroup(name, permissions, projectPermissions)])
+        }
       />
     </div>
   );

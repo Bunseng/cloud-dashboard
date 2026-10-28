@@ -79,7 +79,6 @@ import {
 } from "../pages/vps/VpsInstanceDetailPage";
 import { VpsMonitoringPage } from "../pages/vps/VpsMonitoringPage";
 import { VpsSnapshotsPage } from "../pages/vps/VpsSnapshotsPage";
-import { VpsInstanceSnapshotsPage } from "../pages/vps/VpsInstanceSnapshotsPage";
 import { useVpsSnapshot } from "../pages/vps/VpsSnapshotContext";
 import {
   addVpsSubscription,
@@ -878,22 +877,9 @@ function VpsInstanceRoute() {
         navigate(`/subscribe/vps/standard?upgrade=1&instance=${encodeURIComponent(decodedName)}`)
       }
       onMonitoring={() => navigate(`/vps/${encodeURIComponent(decodedName)}/monitoring`)}
-      onOpenSnapshots={() => navigate(`/vps/${encodeURIComponent(decodedName)}/snapshots`)}
       overrides={provisioned ?? undefined}
       scheduledUpgrade={getSchedule(scheduleKey)}
       onCancelSchedule={() => cancelSchedule(scheduleKey)}
-    />
-  );
-}
-
-function VpsInstanceSnapshotsRoute() {
-  const { instanceName } = useParams<{ instanceName: string }>();
-  const navigate = useNavigate();
-  const decodedName = decodeURIComponent(instanceName ?? "");
-  return (
-    <VpsInstanceSnapshotsPage
-      instanceName={decodedName}
-      onBack={() => navigate(`/vps/${encodeURIComponent(decodedName)}`)}
     />
   );
 }
@@ -977,7 +963,6 @@ export default function DashboardPage() {
         <Route path="/vps" element={<VpsRoute />} />
         <Route path="/vps/snapshots" element={<VpsSnapshotsPage />} />
         <Route path="/vps/:instanceName" element={<VpsInstanceRoute />} />
-        <Route path="/vps/:instanceName/snapshots" element={<VpsInstanceSnapshotsRoute />} />
         <Route path="/vps/:instanceName/monitoring" element={<VpsMonitoringRoute />} />
         <Route path="/groups" element={<GroupsRoute />} />
         <Route path="/groups/:groupId" element={<GroupDetailRoute />} />

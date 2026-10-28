@@ -33,9 +33,8 @@ export const TOKEN_EXPIRY_PRESETS: { value: TokenExpiryPreset; label: string }[]
 
 export interface TokenExpiry {
   preset: TokenExpiryPreset;
-  // Only set when preset is "custom" — an explicit date range instead of
-  // a duration from creation time.
-  startDate?: string;
+  // Only set when preset is "custom" — an explicit expiration date
+  // instead of a duration from creation time.
   endDate?: string;
 }
 

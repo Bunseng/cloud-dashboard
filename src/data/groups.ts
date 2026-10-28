@@ -75,7 +75,14 @@ export interface Group {
   id: string;
   name: string;
   members: GroupMember[];
+  // Billing is account-level, not tied to any one Project, so it lives
+  // here rather than in `projectPermissions` below.
   permissions: GroupPermissions;
+  // Storage/Run App/Database/VPS access is granted per Project — a group
+  // might administer VPS on "web-frontend" but have no access at all on
+  // "worker-queue". Keyed by Project id; a project with no entry here
+  // reads as DEFAULT_PERMISSIONS (no access to anything yet).
+  projectPermissions: Record<string, GroupPermissions>;
 }
 
 let nextGroupId = 1;
@@ -91,34 +98,33 @@ export const GROUPS: Group[] = [
       { ...CLOUD_USERS[0], role: "Owner" },
       { ...CLOUD_USERS[2], role: "Member" },
     ],
-    permissions: {
-      storage: "Read & Write",
-      runapp: "Admin",
-      database: "Read & Write",
-      vps: "Admin",
-      billing: "No Access",
+    permissions: { ...DEFAULT_PERMISSIONS },
+    projectPermissions: {
+      "proj-web": { ...DEFAULT_PERMISSIONS, storage: "Read & Write", runapp: "Admin" },
+      "proj-api": { ...DEFAULT_PERMISSIONS, runapp: "Admin", database: "Read & Write" },
+      "proj-worker": { ...DEFAULT_PERMISSIONS, database: "Read & Write", vps: "Admin" },
     },
   },
   {
     id: "grp-finance",
     name: "Finance",
     members: [{ ...CLOUD_USERS[1], role: "Admin" }],
-    permissions: {
-      storage: "No Access",
-      runapp: "No Access",
-      database: "No Access",
-      vps: "No Access",
-      billing: "Read Only",
-    },
+    permissions: { ...DEFAULT_PERMISSIONS, billing: "Read Only" },
+    projectPermissions: {},
   },
 ];
 
-export function createGroup(name: string): Group {
+export function createGroup(
+  name: string,
+  permissions: GroupPermissions = { ...DEFAULT_PERMISSIONS },
+  projectPermissions: Record<string, GroupPermissions> = {}
+): Group {
   const group: Group = {
     id: makeGroupId(),
     name,
     members: [],
-    permissions: { ...DEFAULT_PERMISSIONS },
+    permissions: { ...permissions },
+    projectPermissions: { ...projectPermissions },
   };
   GROUPS.push(group);
   return group;
@@ -156,6 +162,27 @@ export function setGroupMemberRole(id: string, cloudId: string, role: GroupRole)
 export function saveGroupPermissions(id: string, permissions: GroupPermissions) {
   const group = GROUPS.find((g) => g.id === id);
   if (group) group.permissions = { ...permissions };
+}
+
+export function saveGroupProjectPermissions(
+  id: string,
+  projectId: string,
+  permissions: GroupPermissions
+) {
+  const group = GROUPS.find((g) => g.id === id);
+  if (group) group.projectPermissions = { ...group.projectPermissions, [projectId]: { ...permissions } };
+}
+
+// Total resources actually granted — account-level (Billing) plus every
+// resource granted on any Project — so the Groups list can show one
+// meaningful count instead of just the account-level slice.
+export function countGrantedPermissions(group: Group): number {
+  const accountCount = Object.values(group.permissions).filter((p) => p !== "No Access").length;
+  const projectCount = Object.values(group.projectPermissions).reduce(
+    (sum, perms) => sum + Object.values(perms).filter((p) => p !== "No Access").length,
+    0
+  );
+  return accountCount + projectCount;
 }
 
 /* ------------------------------------------------------------------ *
