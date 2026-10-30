@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Ellipsis } from "@/components/animate-ui/icons/ellipsis";
 import { Eye } from "@/components/animate-ui/icons/eye";
 import { Files } from "@/components/animate-ui/icons/files";
+import { Info } from "@/components/animate-ui/icons/info";
 import { Pencil } from "@/components/animate-ui/icons/pencil";
 import { Plus } from "@/components/animate-ui/icons/plus";
 import { Trash2 } from "@/components/animate-ui/icons/trash-2";
@@ -56,6 +57,18 @@ type ResourceRowAction = {
   icon: (props: { className?: string; animateOnHover?: boolean; animateOnTap?: boolean }) => ReactNode;
   onSelect: () => void;
   disabled?: boolean;
+  // Short explanation shown as a small info icon at the end of the row
+  // (native title tooltip) — for an action whose name alone doesn't say
+  // what it actually does (e.g. "Rebuild Stack" vs "Pull & Restart").
+  hint?: string;
+};
+
+type ResourceBulkAction = {
+  key: string;
+  label: ReactNode;
+  icon: (props: { className?: string; animateOnHover?: boolean; animateOnTap?: boolean }) => ReactNode;
+  onSelect: (rows: ResourceRow[]) => void;
+  disabled?: boolean;
 };
 
 /* Generic resource table — shared by the Stack and Database lists so a
@@ -76,6 +89,10 @@ export function ResourceListView({
   onEdit,
   onDelete,
   extraActions,
+  bulkActions,
+  deleteLabel,
+  deleteTitle,
+  deleteDescription,
 }: {
   columns: ResourceColumn[];
   rows: ResourceRow[];
@@ -94,6 +111,18 @@ export function ResourceListView({
   // Pull & Restart / Stop) rendered between Edit and Delete, so a
   // resource-specific action set doesn't need its own dropdown.
   extraActions?: (row: ResourceRow) => ResourceRowAction[];
+  // Optional — actions that operate on every checked row at once (e.g.
+  // a service list's Pull & Re-deploy / Pull & Restart / Stop or Start),
+  // surfaced as a toolbar above the table as soon as something's
+  // checked instead of requiring one row at a time.
+  bulkActions?: (selectedRows: ResourceRow[]) => ResourceBulkAction[];
+  // Optional — override the row action's own label and the confirm
+  // dialog's copy for a resource where "Delete"/"This can't be undone."
+  // doesn't say enough (e.g. a service: "Remove" + what stops running).
+  // Defaults keep every other list's existing wording unchanged.
+  deleteLabel?: ReactNode;
+  deleteTitle?: (row: ResourceRow) => string;
+  deleteDescription?: (row: ResourceRow) => string;
 }) {
   const [rowsPerPage, setRowsPerPage] = useState("10");
   const [selected, setSelected] = useState<(string | number)[]>([]);
@@ -101,6 +130,7 @@ export function ResourceListView({
 
   const allSelected = rows.length > 0 && selected.length === rows.length;
   const total = totalCount ?? rows.length;
+  const selectedRows = rows.filter((r) => selected.includes(r.id));
 
   function toggleRow(id: string | number) {
     setSelected((prev) =>
@@ -110,11 +140,10 @@ export function ResourceListView({
 
   // Action-cluster rendering rule: a bare "View Detail" + "Delete" pair
   // (2 actions total) doesn't earn a dropdown at all — both render as
-  // plain icon buttons. Once a row has more than 3 actions, "View
-  // Detail" is pulled out next to the ellipsis so the most common click
-  // doesn't require opening a menu first; the rest stay in the
-  // dropdown. Exactly 3 stays as a single dropdown — not enough to
-  // bother splitting.
+  // plain icon buttons. Anything more collapses into one ellipsis menu,
+  // View Detail included, rather than splitting it out — one trigger per
+  // row reads cleaner than a link-plus-ellipsis pair once there's more
+  // than a couple of things to do.
   function renderRowActions(row: ResourceRow) {
     const editAction: ResourceRowAction | null = onEdit
       ? { key: "edit", label: "Edit", icon: Pencil, onSelect: () => onEdit(row) }
@@ -122,7 +151,7 @@ export function ResourceListView({
     const extras = extraActions ? extraActions(row) : [];
     const deleteAction: ResourceRowAction = {
       key: "delete",
-      label: "Delete",
+      label: deleteLabel ?? "Delete",
       icon: Trash2,
       onSelect: () => setDeleteTarget(row),
     };
@@ -147,7 +176,7 @@ export function ResourceListView({
       );
     }
 
-    const menu = (
+    return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -159,15 +188,11 @@ export function ResourceListView({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {totalActions <= 3 && (
-            <>
-              <DropdownMenuItem onSelect={() => onViewDetail?.(row.name)}>
-                <Eye className="h-4 w-4" />
-                View Detail
-              </DropdownMenuItem>
-              {otherActions.length > 0 && <DropdownMenuSeparator />}
-            </>
-          )}
+          <DropdownMenuItem onSelect={() => onViewDetail?.(row.name)}>
+            <Eye className="h-4 w-4" />
+            View Detail
+          </DropdownMenuItem>
+          {otherActions.length > 0 && <DropdownMenuSeparator />}
           {editAction && (
             <DropdownMenuItem onSelect={editAction.onSelect}>
               <editAction.icon className="h-4 w-4" />
@@ -176,11 +201,16 @@ export function ResourceListView({
           )}
           {extras.length > 0 && (
             <>
-              <DropdownMenuSeparator />
+              {editAction && <DropdownMenuSeparator />}
               {extras.map((action) => (
                 <DropdownMenuItem key={action.key} disabled={action.disabled} onSelect={action.onSelect}>
                   <action.icon className="h-4 w-4" />
-                  {action.label}
+                  <span className="flex-1">{action.label}</span>
+                  {action.hint && (
+                    <span className="ml-auto shrink-0" title={action.hint}>
+                      <Info className="h-3.5 w-3.5 text-zinc-400" />
+                    </span>
+                  )}
                 </DropdownMenuItem>
               ))}
             </>
@@ -192,15 +222,6 @@ export function ResourceListView({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    );
-
-    if (totalActions <= 3) return menu;
-
-    return (
-      <div className="flex items-center justify-end gap-3">
-        <ViewDetailLink onClick={() => onViewDetail?.(row.name)} />
-        {menu}
-      </div>
     );
   }
 
@@ -218,6 +239,30 @@ export function ResourceListView({
           {createLabel}
         </Button>
       </div>
+
+      {bulkActions && selectedRows.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-[#1C75BC]/30 bg-[#1C75BC]/5 px-3 py-2 dark:border-[#6FA8D8]/30 dark:bg-[#6FA8D8]/10">
+          <p className="text-[13px] font-medium text-zinc-700 dark:text-zinc-200">
+            {selectedRows.length} selected
+          </p>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {bulkActions(selectedRows).map((action) => (
+              <Button
+                key={action.key}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={action.disabled}
+                onClick={() => action.onSelect(selectedRows)}
+                className="h-8 gap-1.5 bg-white text-[13px] dark:bg-zinc-900"
+              >
+                <action.icon className="h-3.5 w-3.5" animateOnHover animateOnTap />
+                {action.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 rounded-lg border border-zinc-200 dark:border-zinc-800">
         <Table>
@@ -264,7 +309,19 @@ export function ResourceListView({
                         "text-zinc-600 dark:text-zinc-400 " + (col.className || "")
                       }
                     >
-                      {col.render ? col.render(row) : row[col.key]}
+                      {col.key === "name" && onViewDetail ? (
+                        <button
+                          type="button"
+                          onClick={() => onViewDetail(row.name)}
+                          className="text-left font-medium text-[#1C75BC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:text-[#6FA8D8]"
+                        >
+                          {col.render ? col.render(row) : row[col.key]}
+                        </button>
+                      ) : col.render ? (
+                        col.render(row)
+                      ) : (
+                        row[col.key]
+                      )}
                     </TableCell>
                   ))}
                   <TableCell className="whitespace-nowrap text-right">
@@ -339,9 +396,17 @@ export function ResourceListView({
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
-        title={`Delete ${deleteTarget?.name ?? ""}?`}
-        description="This can't be undone."
-        confirmLabel="Delete"
+        title={
+          deleteTarget
+            ? deleteTitle
+              ? deleteTitle(deleteTarget)
+              : `Delete ${deleteTarget.name}?`
+            : "Delete?"
+        }
+        description={
+          deleteTarget && deleteDescription ? deleteDescription(deleteTarget) : "This can't be undone."
+        }
+        confirmLabel={typeof deleteLabel === "string" ? deleteLabel : "Delete"}
         variant="destructive"
         onConfirm={() => {
           if (deleteTarget) onDelete?.(deleteTarget);

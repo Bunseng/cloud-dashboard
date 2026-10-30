@@ -599,13 +599,16 @@ function EditRunAppRoute() {
 function ServiceListRoute() {
   const { subNumber, stackName } = useParams<{ subNumber: string; stackName: string }>();
   const navigate = useNavigate();
+  const decodedName = decodeURIComponent(stackName ?? "");
   return (
     <ServiceListPage
-      stackName={decodeURIComponent(stackName ?? "")}
+      stackName={decodedName}
       onBack={() => navigate(`/runapp/${subNumber}`)}
       onViewService={(serviceName: string) =>
         navigate(`/runapp/${subNumber}/${stackName}/${encodeURIComponent(serviceName)}`)
       }
+      onEditStack={() => navigate(`/runapp/${subNumber}/${encodeURIComponent(decodedName)}/edit`)}
+      onDeleteStack={() => navigate(`/runapp/${subNumber}`)}
     />
   );
 }

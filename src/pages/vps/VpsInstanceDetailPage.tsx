@@ -219,56 +219,70 @@ export function VpsInstanceDetailPage({
           </h1>
           <StatusBadge label={status.label} tone={status.tone} />
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {/* Power controls — top-level like Hetzner Console's own
-              server actions, not a separate card buried in the page
-              body, since start/stop/restart is the thing you reach for
-              most often and before anything else on this page. */}
-          <Button
-            variant="outline"
-            disabled={running}
-            onClick={() => setRunning(true)}
-            className="h-9 gap-1.5 text-sm"
-          >
-            <Play className="h-3.5 w-3.5" animateOnHover animateOnTap />
-            Start
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={!running}
-            onClick={() => setRunning(false)}
-            className="h-9 gap-1.5 text-sm"
-          >
-            <Square className="h-3.5 w-3.5" animateOnHover animateOnTap />
-            Stop
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!running}
-            onClick={() => setRunning(true)}
-            className="h-9 gap-1.5 text-sm"
-          >
-            <RotateCw className="h-3.5 w-3.5" animateOnHover animateOnTap />
-            Restart
-          </Button>
-          <Button variant="outline" onClick={onMonitoring} className="h-9 gap-1.5 text-sm">
-            <Gauge className="h-3.5 w-3.5" animateOnHover animateOnTap />
-            Monitoring
-          </Button>
-          <Button variant="outline" onClick={openTerminal} className="h-9 gap-1.5 text-sm">
-            <Terminal className="h-3.5 w-3.5" animateOnHover animateOnTap />
-            Web Console
-          </Button>
-          <Button
-            variant="brand"
-            onClick={() => setEditOpen(true)}
-            className="h-9 gap-1.5 px-8 text-sm"
-          >
-            <Pencil className="h-3.5 w-3.5" animateOnHover animateOnTap />
-            Edit
-          </Button>
-        </div>
+        <Button
+          variant="brand"
+          onClick={() => setEditOpen(true)}
+          className="h-9 shrink-0 gap-1.5 px-8 text-sm"
+        >
+          <Pencil className="h-3.5 w-3.5" animateOnHover animateOnTap />
+          Edit
+        </Button>
       </div>
+
+      {/* VPS Controls — same shape as Run App's own Stack Controls card:
+          power/console actions grouped in their own card right under the
+          header instead of crowding the title row. */}
+      <Card className="mt-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <CardTitle>VPS Controls</CardTitle>
+            <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
+              Start, stop, or restart this server, or jump into its console and monitoring.
+            </p>
+            <p className="mt-2 flex items-center gap-1.5 text-[13px] text-zinc-600 dark:text-zinc-400">
+              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${running ? "bg-emerald-500" : "bg-zinc-400"}`} />
+              {running ? "Server is running" : "Server is stopped"}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              disabled={running}
+              onClick={() => setRunning(true)}
+              className="h-9 gap-1.5 text-sm"
+            >
+              <Play className="h-3.5 w-3.5" animateOnHover animateOnTap />
+              Start
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!running}
+              onClick={() => setRunning(false)}
+              className="h-9 gap-1.5 text-sm"
+            >
+              <Square className="h-3.5 w-3.5" animateOnHover animateOnTap />
+              Stop
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!running}
+              onClick={() => setRunning(true)}
+              className="h-9 gap-1.5 text-sm"
+            >
+              <RotateCw className="h-3.5 w-3.5" animateOnHover animateOnTap />
+              Restart
+            </Button>
+            <Button variant="outline" onClick={onMonitoring} className="h-9 gap-1.5 text-sm">
+              <Gauge className="h-3.5 w-3.5" animateOnHover animateOnTap />
+              Monitoring
+            </Button>
+            <Button variant="outline" onClick={openTerminal} className="h-9 gap-1.5 text-sm">
+              <Terminal className="h-3.5 w-3.5" animateOnHover animateOnTap />
+              Web Console
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       <div className="mt-5 flex items-start gap-6">
         <div className="min-w-0 flex-1 space-y-5">
