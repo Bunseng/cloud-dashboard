@@ -343,14 +343,14 @@ export function UsageBar({
     <div>
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-[13px] text-zinc-500 dark:text-zinc-400">{label}</p>
-        <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
-          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-            {used} {unit}
-          </span>{" "}
-          of {total} {unit}
+        <p className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">
+          {used} {unit}
         </p>
       </div>
-      <Progress value={pct} className="mt-2 rounded-full" indicatorClassName="rounded-full" />
+      <Progress value={pct} className="mt-2 h-3 rounded-full" indicatorClassName="rounded-full" />
+      <p className="mt-1 text-right text-[12px] text-zinc-500 dark:text-zinc-400">
+        of {total} {unit}
+      </p>
     </div>
   );
 }
@@ -360,11 +360,13 @@ export function RadialGauge({
   value,
   max,
   unit,
+  tooltip,
 }: {
   label: string;
   value: number;
   max: number;
   unit: string;
+  tooltip?: string;
 }) {
   const radius = 38;
   const circumference = 2 * Math.PI * radius;
@@ -372,9 +374,27 @@ export function RadialGauge({
 
   return (
     <div className="flex flex-col items-center rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <p className="text-sm font-bold text-zinc-900 dark:text-zinc-50">{label}</p>
-      <div className="relative mt-3 h-24 w-24 shrink-0">
-        <svg viewBox="0 0 100 100" className="h-24 w-24 -rotate-90">
+      <div className="flex items-center gap-1">
+        <p className="text-sm font-bold text-zinc-900 dark:text-zinc-50">{label}</p>
+        {tooltip && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={`About ${label}`}
+                className="text-zinc-400 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:hover:text-zinc-300"
+              >
+                <Info className="h-3.5 w-3.5" animateOnHover />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[220px] text-[12.5px] leading-snug">
+              {tooltip}
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+      <div className="relative mt-3 h-32 w-32 shrink-0">
+        <svg viewBox="0 0 100 100" className="h-32 w-32 -rotate-90">
           <circle
             cx="50"
             cy="50"
@@ -395,13 +415,13 @@ export function RadialGauge({
             className="stroke-[#1C75BC] motion-safe:transition-[stroke-dashoffset]"
           />
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center text-lg font-bold text-[#1C75BC]">
-          {value}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-2xl font-bold leading-none text-[#1C75BC]">{value}</span>
+          <span className="mt-1.5 text-xs leading-none text-zinc-500 dark:text-zinc-400">
+            /{max} {unit}
+          </span>
         </div>
       </div>
-      <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-        /{max} {unit}
-      </p>
     </div>
   );
 }

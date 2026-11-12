@@ -6,6 +6,7 @@ import { Clapperboard } from "@/components/animate-ui/icons/clapperboard";
 import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
 import { Coins } from "@/components/animate-ui/icons/coins";
 import { Gem } from "@/components/animate-ui/icons/gem";
+import { Gift } from "@/components/animate-ui/icons/gift";
 import { LogOut } from "@/components/animate-ui/icons/log-out";
 import { PanelLeft } from "@/components/animate-ui/icons/panel-left";
 import { Plus } from "@/components/animate-ui/icons/plus";
@@ -27,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import { RedeemDialog } from "@/components/RedeemDialog";
 import { useAccountBalance } from "@/context/AccountBalanceContext";
 import { useFirstUser } from "@/firstusersrc/FirstUserContext";
 
@@ -87,9 +89,10 @@ export function Topbar({
 }) {
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
   const [logOutConfirmOpen, setLogOutConfirmOpen] = useState(false);
+  const [redeemOpen, setRedeemOpen] = useState(false);
   const unreadCount = notifications.filter((n) => !n.read).length;
   const { isFirstUser, toggleFirstUser } = useFirstUser();
-  const { khr, bg } = useAccountBalance();
+  const { khr, bg, creditKHR, creditBG } = useAccountBalance();
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-zinc-200 bg-white pl-4 pr-9 dark:border-zinc-800 dark:bg-zinc-950">
@@ -150,6 +153,18 @@ export function Topbar({
           <Gem className="h-3.5 w-3.5 text-[#1C75BC] dark:text-[#6FA8D8]" animateOnView />
           {bg.toLocaleString()}
           <span className="font-normal text-zinc-400 dark:text-zinc-500">BG</span>
+        </button>
+
+        {/* Redeem sits with the balances, not with Top Up: it's the
+            other way money arrives on the account, and it lands on the
+            same KHR pill two buttons to the left. */}
+        <button
+          type="button"
+          onClick={() => setRedeemOpen(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 motion-safe:transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+        >
+          <Gift className="h-3.5 w-3.5 text-[#1C75BC] dark:text-[#6FA8D8]" animateOnHover />
+          Redeem
         </button>
 
         <Button
@@ -232,7 +247,7 @@ export function Topbar({
                 ))
               ) : (
                 <p className="px-2 py-6 text-center text-[13px] text-zinc-500 dark:text-zinc-400">
-                  You're all caught up.
+                  You&apos;re all caught up.
                 </p>
               )}
             </DropdownMenuContent>
@@ -301,6 +316,14 @@ export function Topbar({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <RedeemDialog
+        open={redeemOpen}
+        onOpenChange={setRedeemOpen}
+        onRedeem={(amount, _code, currency) =>
+          currency === "BG" ? creditBG(amount) : creditKHR(amount)
+        }
+      />
 
       <ConfirmDialog
         open={logOutConfirmOpen}

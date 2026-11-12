@@ -1,10 +1,11 @@
-import type { ComponentType, CSSProperties, ReactNode } from "react";
+import { useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { type LucideIcon } from "lucide-react";
 
 import { AppWindow } from "@/components/animate-ui/icons/app-window";
 import { ArrowRight } from "@/components/animate-ui/icons/arrow-right";
 import { Box } from "@/components/animate-ui/icons/box";
 import { Database } from "@/components/animate-ui/icons/database";
+import { Gift } from "@/components/animate-ui/icons/gift";
 import { ImagePlay } from "@/components/animate-ui/icons/image-play";
 import { Rocket } from "@/components/animate-ui/icons/rocket";
 import { Search } from "@/components/animate-ui/icons/search";
@@ -18,6 +19,15 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+
+import { RedeemDialog } from "@/components/RedeemDialog";
+import { useAccountBalance } from "@/context/AccountBalanceContext";
+import {
+  PROMOTIONS,
+  formatBonus,
+  promotionBonus,
+  type Promotion,
+} from "@/data/promotions";
 
 import { ClickableSurface } from "../components/atoms";
 import { FEATURES } from "../data/nav";
@@ -372,6 +382,103 @@ function HomeSection({
   );
 }
 
+/* A promotion is a banner plus a one-line claim row. The banner is
+   either supplied artwork or — when there is none — a gradient panel
+   carrying the bonus amount, so a promotion without a design still
+   reads as an offer rather than as a broken image. */
+function PromotionCard({
+  promo,
+  index,
+  onRedeem,
+}: {
+  promo: Promotion;
+  index: number;
+  onRedeem: (promo: Promotion) => void;
+}) {
+  const bonus = formatBonus(promotionBonus(promo));
+
+  return (
+    <ClickableSurface
+      onClick={() => onRedeem(promo)}
+      style={stagger(index)}
+      className="group flex cursor-pointer flex-col overflow-hidden rounded-xl border border-[#e5e7eb] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-3 motion-safe:duration-500 motion-safe:fill-mode-both motion-safe:transition-all hover:-translate-y-1 hover:border-[#1C75BC]/40 hover:shadow-[0_8px_24px_rgba(28,117,188,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 dark:border-zinc-800"
+    >
+      <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-[#1C75BC] via-[#155f96] to-[#0d3f66]">
+        {promo.image ? (
+          <img
+            src={promo.image}
+            alt=""
+            className="h-full w-full object-cover motion-safe:transition-transform motion-safe:duration-500 group-hover:scale-[1.04]"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15">
+              <Gift className="h-5 w-5 text-white" animateOnHover animateOnTap />
+            </span>
+            <p className="text-[19px] font-bold tracking-[-0.3px] text-white">{bonus}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 p-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-[#17171c] dark:text-zinc-50">
+            {promo.title}
+          </p>
+          <p className="mt-0.5 truncate text-[13px] text-[#71717a] dark:text-zinc-400">
+            {bonus} bonus
+          </p>
+        </div>
+        <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-[#EFF6FF] px-2.5 py-1.5 text-[13px] font-medium text-[#1C75BC] dark:bg-zinc-800 dark:text-[#6FA8D8]">
+          <Gift className="h-3.5 w-3.5" animateOnHover animateOnTap />
+          Redeem
+        </span>
+      </div>
+    </ClickableSurface>
+  );
+}
+
+function PromotionsSection({ startIndex }: { startIndex: number }) {
+  const { creditKHR, creditBG } = useAccountBalance();
+  const [redeemOpen, setRedeemOpen] = useState(false);
+  const [presetCode, setPresetCode] = useState<string | undefined>(undefined);
+
+  return (
+    <section className="mt-10">
+      <div className="flex items-baseline gap-3">
+        <h2 className="text-[15px] font-bold text-[#1b1b1d] dark:text-zinc-50">Promotions</h2>
+        <span className="h-px flex-1 bg-[#e5e5e7] dark:bg-zinc-800" />
+      </div>
+      <p className="mt-1.5 text-sm text-[#71717a] dark:text-zinc-400">
+        Claim a bonus for your wallet. Tap a promotion to redeem its code.
+      </p>
+
+      <div className="mt-5 grid grid-cols-3 items-stretch gap-5">
+        {PROMOTIONS.map((promo, i) => (
+          <PromotionCard
+            key={promo.id}
+            promo={promo}
+            index={startIndex + i}
+            onRedeem={(p) => {
+              setPresetCode(p.code);
+              setRedeemOpen(true);
+            }}
+          />
+        ))}
+      </div>
+
+      <RedeemDialog
+        open={redeemOpen}
+        onOpenChange={setRedeemOpen}
+        presetCode={presetCode}
+        onRedeem={(amount, _code, currency) =>
+          currency === "BG" ? creditBG(amount) : creditKHR(amount)
+        }
+      />
+    </section>
+  );
+}
+
 export function HomePage({
   onOpenService,
   onOpenPlanning,
@@ -416,11 +523,12 @@ export function HomePage({
         />
       </div>
 
+      <PromotionsSection startIndex={2} />
       <HomeSection
         title="Cloud Service"
         description="Storage, compute, and managed databases for your infrastructure."
         cards={CLOUD_SERVICE_CARDS}
-        startIndex={2}
+        startIndex={2 + PROMOTIONS.length}
         onOpenService={onOpenService}
         isFirstUser={isFirstUser}
       />
@@ -428,7 +536,7 @@ export function HomePage({
         title="Media & Content"
         description="Streaming, delivery, and content tools."
         cards={MEDIA_CONTENT_CARDS}
-        startIndex={2 + CLOUD_SERVICE_CARDS.length}
+        startIndex={2 + PROMOTIONS.length + CLOUD_SERVICE_CARDS.length}
         onOpenService={onOpenService}
         isFirstUser={isFirstUser}
       />

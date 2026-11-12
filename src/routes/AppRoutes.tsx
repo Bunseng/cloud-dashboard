@@ -79,6 +79,7 @@ import {
 } from "../pages/vps/VpsInstanceDetailPage";
 import { VpsMonitoringPage } from "../pages/vps/VpsMonitoringPage";
 import { VpsSnapshotsPage } from "../pages/vps/VpsSnapshotsPage";
+import { VpsSshKeysPage } from "../pages/vps/VpsSshKeysPage";
 import { useVpsSnapshot } from "../pages/vps/VpsSnapshotContext";
 import {
   addVpsSubscription,
@@ -381,7 +382,7 @@ function SubscribeRoute() {
       icon={cat.icon}
       initialTierId={tierId ?? ""}
       mode={searchParams.get("upgrade") ? "upgrade" : "new"}
-      onDone={(purchasedTierId, scheduledDate) => {
+      onDone={(purchasedTierId, scheduledDate, server) => {
         if (scheduledDate) {
           schedule(scheduleKey, {
             tierId: purchasedTierId,
@@ -390,6 +391,34 @@ function SubscribeRoute() {
           });
         } else {
           cancelSchedule(scheduleKey);
+        }
+        // A brand-new VPS subscription collects its hostname/OS right in
+        // Subscribe (see VpsServerDetailsStep) — provision the server
+        // immediately instead of landing back on the dashboard with a
+        // numbered-but-empty subscription still waiting on Create VPS.
+        if (cat.key === "vps" && server) {
+          const n = addVpsSubscription();
+          const name = `VPS Instance ${n}`;
+          VPS_PROVISIONED[name] = {
+            hostname: server.hostname,
+            os: server.os,
+            region: server.region,
+            tierId: purchasedTierId,
+            // Snapshot protection is bought in the same checkout, so the
+            // server arrives with it already on instead of needing a
+            // second trip through /subscribe/vpsSnapshot.
+            snapshotEnabled: server.snapshotEnabled,
+            snapshotTierId: server.snapshotTierId,
+            specs: server.specs,
+          };
+          // The instance page reads snapshot state from VpsSnapshotContext,
+          // not from VPS_PROVISIONED — register it there too, exactly as
+          // the Create VPS path does.
+          if (server.snapshotEnabled) {
+            subscribeSnapshot(name, server.snapshotTierId ?? "basic");
+          }
+          navigate(`/vps/${encodeURIComponent(name)}`);
+          return;
         }
         navigate(FEATURES.some((f) => f.id === cat.key) ? `/dashboard/${cat.key}` : "/planning");
       }}
@@ -436,8 +465,8 @@ function StorageRoute() {
             onAction={() => subscribeNavigate("/subscribe/storage/free")}
           />
         ) : (
-          <div className="flex items-start gap-6">
-            <div className="min-w-0 flex-1">
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+            <div className="min-w-0 lg:col-span-2">
               <StoragePanel
                 onViewBucket={(name: string) => navigate(`/storage/${encodeURIComponent(name)}`)}
               />
@@ -493,10 +522,10 @@ function RunAppRoute() {
             footerLabel="View Stack List"
             planName="Basic"
             stats={RUNAPP_PLAN_STATS}
-            getSubscriptionName={(n) => {
-              const names = STACK_ROWS.filter((s) => s.subscriptionNumber === n).map((s) => s.name);
-              return names.length > 0 ? names.join(", ") : "No stack";
-            }}
+            getSubscriptionName={() => "No stack"}
+            getSubscriptionTags={(n) =>
+              STACK_ROWS.filter((s) => s.subscriptionNumber === n).map((s) => s.name)
+            }
             onSelectSubscription={(n: number) => navigate(`/runapp/${n}`)}
             onNewSubscription={() => navigate("/planning")}
             onUpgrade={(n: number) =>
@@ -751,9 +780,12 @@ function VpsRoute() {
   const { isFirstUser } = useFirstUser();
   const subscribeNavigate = useSubscribeNavigate();
   const { getSchedule, cancelSchedule } = usePlanSchedule();
-  // Seeded once from the shared counter — grows when "New Subscription"
-  // actually adds one, same "no backend" convention as every other list.
-  const [subscriptionCount, setSubscriptionCount] = useState(() => VPS_SUBSCRIPTION_COUNT);
+  // Seeded once from the shared counter — Subscribe (Plan → Server
+  // Details → Payment) is what actually grows it now, same as every
+  // other entry point into a new VPS subscription; remounting this
+  // route (navigating away to Subscribe and back) picks up the new
+  // count.
+  const [subscriptionCount] = useState(() => VPS_SUBSCRIPTION_COUNT);
   return (
     <>
       <h1 className="text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
@@ -783,11 +815,7 @@ function VpsRoute() {
             onSelectSubscription={(n: number) =>
               navigate(`/vps/${encodeURIComponent(`VPS Instance ${n}`)}`)
             }
-            onNewSubscription={() => {
-              const n = addVpsSubscription();
-              setSubscriptionCount(n);
-              navigate(`/vps/${encodeURIComponent(`VPS Instance ${n}`)}`);
-            }}
+            onNewSubscription={() => subscribeNavigate("/subscribe/vps/standard")}
             onUpgrade={(n: number) =>
               navigate(
                 `/subscribe/vps/standard?upgrade=1&instance=${encodeURIComponent(`VPS Instance ${n}`)}`
@@ -965,6 +993,9 @@ export default function DashboardPage() {
         <Route path="/database/:instanceName/backups" element={<DatabaseInstanceBackupsRoute />} />
         <Route path="/vps" element={<VpsRoute />} />
         <Route path="/vps/snapshots" element={<VpsSnapshotsPage />} />
+        {/* Account-level, so it sits above /vps/:instanceName — otherwise
+            "ssh-keys" would be read as an instance name. */}
+        <Route path="/vps/ssh-keys" element={<VpsSshKeysPage />} />
         <Route path="/vps/:instanceName" element={<VpsInstanceRoute />} />
         <Route path="/vps/:instanceName/monitoring" element={<VpsMonitoringRoute />} />
         <Route path="/groups" element={<GroupsRoute />} />

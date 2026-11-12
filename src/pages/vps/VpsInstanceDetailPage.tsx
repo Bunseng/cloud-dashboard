@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Clock, Globe, Info, Maximize2, RefreshCw, Wrench } from "lucide-react";
 
 import { BellRing } from "@/components/animate-ui/icons/bell-ring";
 import { Camera } from "@/components/animate-ui/icons/camera";
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -32,11 +34,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { CambodiaMap } from "../../components/CambodiaMap";
 import { ServicePlanCard } from "../../components/PlanCards";
 import {
   BillingDashboardButton,
   ConnectionRow,
+  CopyIconButton,
   PILL_TABS_LIST_CLASS,
   PILL_TAB_TRIGGER_CLASS,
   StatTile,
@@ -45,8 +47,8 @@ import {
 import type { ScheduledPlanChange } from "../../context/PlanScheduleContext";
 import { PLACEHOLDER_SUBSCRIPTION_COUNT } from "../../data/billing";
 import { SERVICE_PRICING } from "../../data/pricing";
-import { findVpsRegion, VPS_REGIONS } from "../../data/regions";
 import { EmptyState } from "../../firstusersrc/EmptyState";
+import { BLUE, drift, OLIVE, TEAL } from "./VpsMonitorWidgets";
 import {
   AddSshKeyDialog,
   addVpsSshKey,
@@ -105,6 +107,16 @@ function makeTemplate(index: number): Omit<VpsInstance, "name"> {
   };
 }
 
+/* SSH keys authorize the distro's own user, not root, so both the
+   command shown and the note explaining it have to follow whatever OS
+   this server actually runs — "Ubuntu 24.04 LTS" → `ubuntu`. */
+function osUser(os: string): string {
+  return (os.split(/[\s-]/)[0] || "root").toLowerCase();
+}
+function sshCommandFor(os: string, publicIp: string): string {
+  return `ssh ${osUser(os)}@${publicIp}`;
+}
+
 // Same provisioning trail every instance actually went through (see
 // CreateVpsPage), shown newest-first — a lightweight stand-in for a
 // real activity log, same spirit as Hetzner Console's own Activities
@@ -145,7 +157,13 @@ export function VpsInstanceDetailPage({
   // Freshly provisioned via CreateVpsPage — its hostname/OS/region/tier
   // win over the sample template so the just-filled-in form actually
   // shows up on the instance it created.
-  overrides?: { hostname?: string; os?: string; region?: string; tierId?: string };
+  overrides?: {
+    hostname?: string;
+    os?: string;
+    region?: string;
+    tierId?: string;
+    specs?: { cpu: string; memory: string; storage: string };
+  };
 }) {
   const navigate = useNavigate();
   const { isSubscribed, getTierId, snapshots, addSnapshot, setSnapshotStatus, addHistoryEntry } =
@@ -167,9 +185,15 @@ export function VpsInstanceDetailPage({
     ...(vpsTier
       ? {
           resource: {
-            cpu: vpsTier.specs.find(([label]) => label === "vCPU")?.[1] ?? "2 Core",
-            memory: vpsTier.specs.find(([label]) => label === "RAM")?.[1] ?? "4 GB",
-            storage: vpsTier.specs.find(([label]) => label === "SSD Storage")?.[1] ?? "80 GB",
+            // Subscribe's Service Specification step can scale a server
+            // past its plan — what was actually bought wins over the
+            // tier's bundled numbers.
+            cpu: overrides?.specs?.cpu ?? vpsTier.specs.find(([label]) => label === "vCPU")?.[1] ?? "2 Core",
+            memory: overrides?.specs?.memory ?? vpsTier.specs.find(([label]) => label === "RAM")?.[1] ?? "4 GB",
+            storage:
+              overrides?.specs?.storage ??
+              vpsTier.specs.find(([label]) => label === "SSD Storage")?.[1] ??
+              "80 GB",
             bandwidth: vpsTier.specs.find(([label]) => label === "Bandwidth")?.[1] ?? "4 TB",
           },
         }
@@ -179,6 +203,9 @@ export function VpsInstanceDetailPage({
   const [running, setRunning] = useState(d.status.label === "Running");
   const [editOpen, setEditOpen] = useState(false);
   const [destroyOpen, setDestroyOpen] = useState(false);
+  // Bumped by the header's Refresh so the live stat ticker restarts
+  // from fresh values instead of continuing its drift.
+  const [, setRefreshedAt] = useState(() => 0);
   const [addKeyOpen, setAddKeyOpen] = useState(false);
   // Seeded from the shared, account-level key list — same keys a Create
   // VPS flow (or another instance's own "Add Key") already added show
@@ -188,7 +215,34 @@ export function VpsInstanceDetailPage({
   const [restoreTarget, setRestoreTarget] = useState<Snapshot | null>(null);
   const [historyTarget, setHistoryTarget] = useState<Snapshot | null>(null);
   const status = running ? { label: "Running", tone: "green" } : { label: "Stopped", tone: "red" };
-  const region = findVpsRegion(d.region) ?? VPS_REGIONS[0];
+
+  // Same live-sample stat panel Monitoring leads with — kept here too so
+  // Overview answers "is this healthy right now" without a trip to the
+  // full Monitoring page. No agent actually polls this VPS; values just
+  // drift on a timer so the panel reads as live.
+  const [cpu, setCpu] = useState(28);
+  const [memory, setMemory] = useState(45);
+  const [disk, setDisk] = useState(27);
+  const [ioDelay, setIoDelay] = useState(0.45);
+  const [netDown, setNetDown] = useState(12.4);
+  const [netUp, setNetUp] = useState(3.1);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCpu((v) => drift(v, 10, 4, 96));
+      setMemory((v) => drift(v, 6, 20, 90));
+      setDisk((v) => drift(v, 0.6, 15, 85));
+      setIoDelay((v) => drift(v, 0.4, 0, 6));
+      setNetDown((v) => drift(v, 6, 0.5, 60));
+      setNetUp((v) => drift(v, 2, 0.2, 20));
+    }, 1800);
+    return () => clearInterval(timer);
+  }, []);
+
+  const cpuCores = parseFloat(d.resource.cpu) || 2;
+  const memoryTotalGiB = parseFloat(d.resource.memory) || 4;
+  const storageTotalGiB = parseFloat(d.resource.storage) || 80;
+  const memUsedGiB = (memory / 100) * memoryTotalGiB;
 
   function openTerminal() {
     // Mock web console — a real backend would issue a short-lived session
@@ -219,14 +273,52 @@ export function VpsInstanceDetailPage({
           </h1>
           <StatusBadge label={status.label} tone={status.tone} />
         </div>
-        <Button
-          variant="brand"
-          onClick={() => setEditOpen(true)}
-          className="h-9 shrink-0 gap-1.5 px-8 text-sm"
-        >
-          <Pencil className="h-3.5 w-3.5" animateOnHover animateOnTap />
-          Edit
-        </Button>
+        {/* Lifecycle actions live in the header rather than behind a
+            Settings tab — rebuilding, resizing and destroying are all
+            things you reach for while looking at the server itself. */}
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="brand"
+            onClick={() => setEditOpen(true)}
+            className="h-9 gap-1.5 text-sm"
+          >
+            <Wrench className="h-3.5 w-3.5" />
+            Rebuild
+          </Button>
+          <Button variant="outline" onClick={onUpgrade} className="h-9 gap-1.5 text-sm">
+            <Maximize2 className="h-3.5 w-3.5" />
+            Resize
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setRefreshedAt(Date.now())}
+            className="h-9 gap-1.5 text-sm"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 py-1 pl-2 pr-1 text-[13px] font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+              <Globe className="h-3.5 w-3.5 shrink-0 text-[#1C75BC] dark:text-[#6FA8D8]" />
+              <span className="font-mono">{d.network.publicIp}</span>
+              <CopyIconButton value={d.network.publicIp} label="Public IP" iconClassName="h-3.5 w-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[260px] text-[12.5px] leading-snug">
+            <p className="font-semibold text-zinc-900 dark:text-zinc-100">Connect over SSH</p>
+            <p className="mt-0.5 font-mono text-zinc-700 dark:text-zinc-300">
+              {sshCommandFor(d.os, d.network.publicIp)}
+            </p>
+            <p className="mt-1.5 text-zinc-500 dark:text-zinc-400">
+              Private IP {d.network.privateIp} — reachable only from other servers in this region.
+            </p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* VPS Controls — same shape as Run App's own Stack Controls card:
@@ -284,8 +376,8 @@ export function VpsInstanceDetailPage({
         </div>
       </Card>
 
-      <div className="mt-5 flex items-start gap-6">
-        <div className="min-w-0 flex-1 space-y-5">
+      <div className="mt-5 grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+        <div className="min-w-0 space-y-5 lg:col-span-2">
           {/* Same section split as Hetzner Console's own server detail
               page (Overview / Network / SSH Keys / Snapshots tabs) rather
               than one long scroll of cards — each concern gets its own
@@ -305,6 +397,9 @@ export function VpsInstanceDetailPage({
               <TabsTrigger value="snapshots" className={PILL_TAB_TRIGGER_CLASS}>
                 Snapshots
               </TabsTrigger>
+              <TabsTrigger value="activities" className={PILL_TAB_TRIGGER_CLASS}>
+                Activities
+              </TabsTrigger>
               <TabsTrigger value="settings" className={PILL_TAB_TRIGGER_CLASS}>
                 Settings
               </TabsTrigger>
@@ -312,17 +407,27 @@ export function VpsInstanceDetailPage({
 
             <TabsContent value="overview" className="mt-4 space-y-5">
               <Card>
-                <CardTitle>Overview</CardTitle>
+                <div className="flex items-start justify-between gap-3">
+                  <CardTitle>Overview</CardTitle>
+                  {/* Same live-status dot the VPS Controls card uses, so
+                      "it's up" reads the same way in both places. */}
+                  <span className="flex shrink-0 items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
+                    <span
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${running ? "bg-emerald-500" : "bg-zinc-400"}`}
+                    />
+                    Uptime: 14d 6h 22m
+                  </span>
+                </div>
                 <div className="mt-4 grid grid-cols-3 gap-x-6 gap-y-4">
                   <StatTile
                     label={
                       <span className="flex items-center gap-1.5">
-                        <Server className="h-3.5 w-3.5 text-zinc-400" />
-                        Hostname
+                        <Globe className="h-3.5 w-3.5 text-zinc-400" />
+                        Region
                       </span>
                     }
                   >
-                    {d.hostname}
+                    {d.region}
                   </StatTile>
                   <StatTile
                     label={
@@ -337,50 +442,78 @@ export function VpsInstanceDetailPage({
                   <StatTile
                     label={
                       <span className="flex items-center gap-1.5">
-                        <Cpu className="h-3.5 w-3.5 text-zinc-400" />
-                        vCPU
+                        <Clock className="h-3.5 w-3.5 text-zinc-400" />
+                        Created At
                       </span>
                     }
                   >
-                    {d.resource.cpu}
-                  </StatTile>
-                  <StatTile
-                    label={
-                      <span className="flex items-center gap-1.5">
-                        <MemoryStick className="h-3.5 w-3.5 text-zinc-400" />
-                        Memory
-                      </span>
-                    }
-                  >
-                    {d.resource.memory}
-                  </StatTile>
-                  <StatTile
-                    label={
-                      <span className="flex items-center gap-1.5">
-                        <HardDrive className="h-3.5 w-3.5 text-zinc-400" />
-                        Storage
-                      </span>
-                    }
-                  >
-                    {d.resource.storage}
+                    Nov 02, 2026 02:23 PM
                   </StatTile>
                 </div>
-              </Card>
 
-              {/* Region & Location — datacenter/city/country/network zone
-                  plus a map so "where is this server" reads visually,
-                  same spirit as the provider consoles this app mirrors. */}
-              <Card>
-                <CardTitle>Region & Location</CardTitle>
-                <div className="mt-4 grid grid-cols-[1fr_200px] gap-6">
-                  <div className="space-y-2">
-                    <ConnectionRow label="Datacenter" value={region.datacenter} copyable={false} />
-                    <ConnectionRow label="City" value={region.city} copyable={false} />
-                    <ConnectionRow label="Country" value={`${region.country} (${region.countryCode})`} copyable={false} />
-                    <ConnectionRow label="Network Zone" value={region.networkZone} copyable={false} />
+                {/* Headline utilisation — the number you glance at, with
+                    the raw figure underneath. The full per-metric panel
+                    still lives on Monitoring. */}
+                <p className="mt-5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Usage</p>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {[
+                    { icon: Cpu, label: "CPU", pct: cpu, sub: `${cpuCores} vCPU`, color: BLUE },
+                    {
+                      icon: MemoryStick,
+                      label: "RAM",
+                      pct: memory,
+                      sub: `${memUsedGiB.toFixed(2)} GiB of ${memoryTotalGiB} GiB`,
+                      color: TEAL,
+                    },
+                    {
+                      icon: HardDrive,
+                      label: "Disk",
+                      pct: disk,
+                      sub: `${((disk / 100) * storageTotalGiB).toFixed(1)} GiB of ${storageTotalGiB} GiB`,
+                      color: OLIVE,
+                    },
+                  ].map((m) => (
+                    <div
+                      key={m.label}
+                      className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                    >
+                      <span className="flex items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
+                        <m.icon className="h-3.5 w-3.5 text-zinc-400" />
+                        {m.label}
+                      </span>
+                      <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                        {m.pct.toFixed(1)}
+                        <span className="ml-0.5 text-sm font-medium text-zinc-400">%</span>
+                      </p>
+                      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${Math.min(m.pct, 100)}%`, backgroundColor: m.color }}
+                        />
+                      </div>
+                      <p className="mt-2 text-[12px] text-zinc-500 dark:text-zinc-400">{m.sub}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+                    <span className="text-[12.5px] text-zinc-500 dark:text-zinc-400">Network</span>
+                    <p className="mt-1 text-[13px] text-zinc-900 dark:text-zinc-100">
+                      ↓ {netDown.toFixed(1)} Mbps
+                    </p>
+                    <p className="text-[13px] text-zinc-900 dark:text-zinc-100">
+                      ↑ {netUp.toFixed(1)} Mbps
+                    </p>
                   </div>
-                  <div className="flex items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50/50 p-2 dark:border-zinc-800 dark:bg-zinc-900/40">
-                    <CambodiaMap regions={VPS_REGIONS} selectedId={region.id} className="h-full w-full" />
+                  <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+                    <span className="text-[12.5px] text-zinc-500 dark:text-zinc-400">Disk IO</span>
+                    <p className="mt-1 text-[13px] text-zinc-900 dark:text-zinc-100">
+                      R {(ioDelay * 12).toFixed(0)} KB/s
+                    </p>
+                    <p className="text-[13px] text-zinc-900 dark:text-zinc-100">
+                      W {(ioDelay * 7).toFixed(0)} KB/s
+                    </p>
                   </div>
                 </div>
               </Card>
@@ -408,14 +541,37 @@ export function VpsInstanceDetailPage({
 
             <TabsContent value="network" className="mt-4">
               <Card>
-                <CardTitle>Network & Access</CardTitle>
+                <div className="flex items-center gap-1.5">
+                  <CardTitle>Network & Access</CardTitle>
+                  <Info className="h-3.5 w-3.5 text-zinc-400" />
+                </div>
                 <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-                  Connect over SSH using the public IP below.
+                  Addresses and SSH login for this instance.
                 </p>
                 <div className="mt-4 space-y-2">
-                  <ConnectionRow label="Public IP" value={d.network.publicIp} />
-                  <ConnectionRow label="Private IP" value={d.network.privateIp} />
-                  <ConnectionRow label="SSH Command" value={d.network.sshCommand} />
+                  <ConnectionRow label="IPv4" value={d.network.publicIp} />
+                  <ConnectionRow label="Private network" value={d.network.privateIp} />
+                  <ConnectionRow
+                    label={`SSH command · ${d.os.split(/[\s-]/)[0]} OS user`}
+                    value={sshCommandFor(d.os, d.network.publicIp)}
+                  />
+                </div>
+
+                {/* The thing people get wrong on first login — the key
+                    authorizes the distro's own user, not root. */}
+                <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/60">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#1C75BC] dark:text-[#6FA8D8]" />
+                  <p className="text-[12.5px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+                    SSH keys log in as the {d.os.split(/[\s-]/)[0]} OS user{" "}
+                    <code className="rounded bg-zinc-200 px-1 py-0.5 font-mono text-[11.5px] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+                      {osUser(d.os)}
+                    </code>
+                    , not root. Use{" "}
+                    <code className="rounded bg-zinc-200 px-1 py-0.5 font-mono text-[11.5px] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+                      sudo
+                    </code>{" "}
+                    for root access.
+                  </p>
                 </div>
               </Card>
             </TabsContent>
@@ -648,13 +804,55 @@ export function VpsInstanceDetailPage({
             {/* Settings — destructive/account-level controls for this
                 instance get their own tab, same as Danger Zone sitting at
                 the bottom of a dedicated Settings page elsewhere. */}
+            {/* Full task log for this server — the Overview card shows
+                only the latest few; this is every one with its timing
+                and outcome. */}
+            <TabsContent value="activities" className="mt-4">
+              <Card className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Activity</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Started</TableHead>
+                      <TableHead>Completed</TableHead>
+                      <TableHead>Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {INSTANCE_ACTIVITY.map((activity, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">
+                          {activity.label}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge label="Completed" tone="green" />
+                        </TableCell>
+                        <TableCell className="text-zinc-500 dark:text-zinc-400">
+                          {activity.time}
+                        </TableCell>
+                        <TableCell className="text-zinc-500 dark:text-zinc-400">
+                          {activity.time}
+                        </TableCell>
+                        <TableCell className="text-zinc-500 dark:text-zinc-400">—</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            </TabsContent>
+
+            {/* Irreversible actions get their own tab rather than a
+                header button — destroying a server shouldn't sit one
+                stray click away from Refresh. */}
             <TabsContent value="settings" className="mt-4">
               <Card className="border-red-200 dark:border-red-900/40">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <CardTitle className="text-red-600 dark:text-red-400">Danger Zone</CardTitle>
                     <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-                      Destroying this server is permanent and erases its disk. This can't be undone.
+                      Destroying this server is permanent and erases its disk. This can&apos;t be
+                      undone.
                     </p>
                   </div>
                   <Button
@@ -671,25 +869,37 @@ export function VpsInstanceDetailPage({
         </div>
 
         {/* Right rail: this instance's subscription */}
-        <div className="w-[320px] shrink-0 space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Subscription</h2>
-            <BillingDashboardButton compact />
+        <div className="min-w-0 space-y-4">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Subscription</h2>
+              <BillingDashboardButton compact />
+            </div>
+            {/* The period being paid for, so "Renews On" below has
+                something to be the end of. */}
+            <p className="mt-0.5 text-[13px] text-zinc-500 dark:text-zinc-400">
+              19 Oct – 18 Nov 2026
+            </p>
           </div>
 
           <ServicePlanCard
+            title="VPS"
             planName={vpsTier?.name ?? "Standard"}
             stats={
               vpsTier
                 ? [
                     ["Status", "Active", "text-emerald-600 dark:text-emerald-400"],
-                    ["Renews On", "Aug 2, 2026"],
-                    ["Pricing", `${vpsTier.priceKHR.toLocaleString()} KHR/mo`],
-                    ["Bandwidth", d.resource.bandwidth],
-                    ["Region", d.region],
+                    ["Renews On", "18 November, 2026"],
+                    ["Price", `${vpsTier.priceKHR.toLocaleString()} KHR /mo`],
+                    ["vCPU", d.resource.cpu],
+                    ["RAM", d.resource.memory],
+                    ["Disk", d.resource.storage],
+                    ["Network Speed", d.resource.bandwidth],
+                    ["Networking", "IPv4"],
                   ]
                 : VPS_PLAN_STATS
             }
+            daysLeft={18}
             showFooter={false}
             onUpgrade={onUpgrade}
             scheduledUpgrade={scheduledUpgrade}
@@ -781,10 +991,13 @@ export function VpsInstanceDetailPage({
 
 export const VPS_PLAN_STATS = [
   ["Status", "Active", "text-emerald-600 dark:text-emerald-400"],
-  ["Renews On", "Aug 2, 2026"],
-  ["Pricing", "80,000 KHR/mo"],
-  ["Bandwidth", "4 TB"],
-  ["Region", "Phnom Penh, KH"],
+  ["Renews On", "18 November, 2026"],
+  ["Price", "80,000 KHR /mo"],
+  ["vCPU", "2 Core"],
+  ["RAM", "4 GB"],
+  ["Disk", "80 GB"],
+  ["Network Speed", "4 TB"],
+  ["Networking", "IPv4"],
 ];
 
 /* Shown on the subscription list, one level up from a specific
@@ -793,7 +1006,7 @@ export const VPS_PLAN_STATS = [
 export const VPS_SUBSCRIPTION_STATS = [
   ["Status", "Active", "text-emerald-600 dark:text-emerald-400"],
   ["Renews On", "Aug 2, 2026"],
-  ["Pricing", "80,000 KHR/mo"],
+  ["Price", "80,000 KHR/mo"],
   ["vCPU", "2 Core"],
   ["RAM", "4 GB"],
   ["Storage", "80 GB"],

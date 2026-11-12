@@ -51,7 +51,7 @@ import {
 // Local datacenter presence only — Phnom Penh is the one Province with
 // a live region today, the rest list for roadmap visibility but can't
 // be selected yet.
-const VPS_PROVINCES: { name: string; available: boolean }[] = [
+export const VPS_PROVINCES: { name: string; available: boolean }[] = [
   { name: "Phnom Penh", available: true },
   { name: "Siem Reap", available: false },
   { name: "Battambang", available: false },
@@ -73,6 +73,9 @@ export interface VpsCreateResult {
   tierId: string;
   snapshotEnabled: boolean;
   snapshotTierId?: string;
+  // Set when Subscribe's Service Specification step scaled the server
+  // past its plan — these win over the tier's bundled spec row.
+  specs?: { cpu: string; memory: string; storage: string };
 }
 
 /* Module-level (not React state) so it survives navigating away and

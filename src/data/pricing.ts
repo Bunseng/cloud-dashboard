@@ -584,10 +584,10 @@ export const TIER_THEME: Record<string, TierTheme> = {
     ring: "border-blue-400 dark:border-blue-700",
   },
   standard: {
-    badge: "bg-gradient-to-r from-violet-400 to-purple-500",
-    chip: "bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-950 dark:to-purple-950",
-    icon: "text-violet-600 dark:text-violet-300",
-    ring: "border-violet-400 dark:border-violet-700",
+    badge: "bg-gradient-to-r from-orange-500 to-red-500",
+    chip: "bg-gradient-to-br from-orange-100 to-red-100 dark:from-orange-950 dark:to-red-950",
+    icon: "text-orange-600 dark:text-orange-300",
+    ring: "border-orange-400 dark:border-orange-700",
   },
   premium: {
     badge: "bg-gradient-to-r from-fuchsia-500 to-pink-500",

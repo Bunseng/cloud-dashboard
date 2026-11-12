@@ -303,7 +303,7 @@ export function RunAppSubscriptionPanel({
   onCancelSchedule?: () => void;
 }) {
   return (
-    <div className="w-[320px] shrink-0 space-y-5">
+    <div className="min-w-0 space-y-5">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Subscription</h2>
         <BillingDashboardButton compact />
@@ -311,8 +311,10 @@ export function RunAppSubscriptionPanel({
       <p className="-mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">02 JUL - 02 AUG</p>
 
       <ServicePlanCard
+        title="Run App"
         planName="Basic"
         stats={RUNAPP_PLAN_STATS}
+        daysLeft={18}
         showFooter={false}
         onUpgrade={onUpgrade}
         scheduledUpgrade={scheduledUpgrade}
@@ -320,8 +322,20 @@ export function RunAppSubscriptionPanel({
       />
 
       <div className="grid grid-cols-2 gap-4">
-        <RadialGauge label="CPU" value={0.5} max={1} unit="CORE" />
-        <RadialGauge label="RAM" value={512} max={1024} unit="MB" />
+        <RadialGauge
+          label="CPU"
+          value={0.5}
+          max={1}
+          unit="CORE"
+          tooltip="CPU cores currently used across this subscription's stacks."
+        />
+        <RadialGauge
+          label="RAM"
+          value={512}
+          max={1024}
+          unit="MB"
+          tooltip="Memory currently used across this subscription's stacks."
+        />
       </div>
     </div>
   );
@@ -330,10 +344,10 @@ export function RunAppSubscriptionPanel({
 export const RUNAPP_PLAN_STATS = [
   ["Status", "Active", "text-emerald-600 dark:text-emerald-400"],
   ["Renews On", "Aug 2, 2026"],
-  ["Pricing", "36,000 KHR/mo"],
+  ["Price", "36,000 KHR/mo"],
+  ["Transfer", "2 TB"],
   ["CPU", "1 CORE"],
   ["RAM", "1 GB"],
-  ["Transfer", "2 TB"],
 ];
 
 /* One Run App subscription's stacks, with that subscription's plan and
@@ -420,8 +434,8 @@ export function StackListPage({
         Subscription {subscriptionNumber}
       </h1>
 
-      <div className="mt-5 flex items-start gap-6">
-        <div className="min-w-0 flex-1">
+      <div className="mt-5 grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">
           <ResourceListView
             columns={buildStackColumns(onViewStack)}
             rows={visibleRows}

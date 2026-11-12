@@ -1,7 +1,9 @@
 import { ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+
+import { BLUE, clamp, drift, MonitorPanel, OLIVE, TEAL } from "./VpsMonitorWidgets";
 
 /* ------------------------------------------------------------------ *
  * VPS Monitoring — styled after Proxmox VE's node summary dashboard:
@@ -9,24 +11,10 @@ import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
  * own light/dark theme instead of forcing a permanently dark surface.
  * No agent actually polls this VPS; values drift on a randomized
  * interval client-side so the page reads as "live" instead of a
- * static snapshot.
+ * static snapshot. The hostname/uptime stat panel itself now lives on
+ * the Instance Detail Overview tab instead — this page keeps the
+ * charts and the live log.
  * ------------------------------------------------------------------ */
-
-const BLUE = "#3a86d1";
-const OLIVE = "#c3d61f";
-const TEAL = "#20a4a0";
-const EMERALD = "#10b981";
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-/* Random walk — each tick nudges the value by a small delta instead of
-   jumping to a fresh random number, so it reads as a real fluctuating
-   load rather than flickering noise. */
-function drift(value: number, delta: number, min: number, max: number): number {
-  return clamp(value + (Math.random() * 2 - 1) * delta, min, max);
-}
 
 /* Points shown across the width of a chart. */
 const HISTORY_LENGTH = 30;
@@ -54,74 +42,6 @@ interface LogEntry {
   id: number;
   time: string;
   text: string;
-}
-
-function MonitorPanel({
-  title,
-  legend,
-  children,
-}: {
-  title: string;
-  legend?: { label: string; color: string }[];
-  children: ReactNode;
-}) {
-  return (
-    <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
-        <p className="truncate text-[13px] font-semibold text-[#1C75BC] dark:text-[#6FA8D8]">{title}</p>
-        {legend && (
-          <div className="flex shrink-0 items-center gap-3">
-            {legend.map((l) => (
-              <span
-                key={l.label}
-                className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400"
-              >
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: l.color }} />
-                {l.label}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
-  );
-}
-
-function BarStatRow({
-  label,
-  valueText,
-  pct,
-  color,
-}: {
-  label: string;
-  valueText: string;
-  pct: number;
-  color: string;
-}) {
-  return (
-    <div className="pb-3">
-      <div className="flex items-baseline justify-between gap-2 text-[13px]">
-        <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
-        <span className="tabular-nums text-zinc-900 dark:text-zinc-100">{valueText}</span>
-      </div>
-      <div className="mt-1.5 h-[3px] w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-        <div
-          className="h-full rounded-full motion-safe:transition-[width]"
-          style={{ width: `${clamp(pct, 0, 100)}%`, backgroundColor: color }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function PlainStatRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2 pb-3 text-[13px]">
-      <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
-      <span className="tabular-nums text-zinc-900 dark:text-zinc-100">{value}</span>
-    </div>
-  );
 }
 
 interface AreaSeries {
@@ -327,7 +247,6 @@ export function VpsMonitoringPage({
     return t.toLocaleTimeString(undefined, { hour12: false, hour: "2-digit", minute: "2-digit" });
   });
 
-  const memUsedGiB = (memory / 100) * memoryTotalGiB;
   const memAvailableHistory = memoryHistory.map((v) => memoryTotalGiB - (v / 100) * memoryTotalGiB);
   const memUsedHistory = memoryHistory.map((v) => (v / 100) * memoryTotalGiB);
 
@@ -383,63 +302,6 @@ export function VpsMonitoringPage({
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <MonitorPanel title={`${hostname ?? instanceName} (Uptime: 14d 6h 22m)`}>
-          <BarStatRow
-            label="CPU usage"
-            valueText={`${cpu.toFixed(2)}% of ${cpuCores} CPUs`}
-            pct={cpu}
-            color={BLUE}
-          />
-          <BarStatRow
-            label="IO delay"
-            valueText={`${ioDelay.toFixed(2)}%`}
-            pct={(ioDelay / 10) * 100}
-            color={OLIVE}
-          />
-          <BarStatRow
-            label="RAM usage"
-            valueText={`${memory.toFixed(2)}% (${memUsedGiB.toFixed(2)} GiB of ${memoryTotalGiB} GiB)`}
-            pct={memory}
-            color={TEAL}
-          />
-          <PlainStatRow
-            label="Load average"
-            value={`${loadAvg.toFixed(2)}, ${(loadAvg * 0.92).toFixed(2)}, ${(loadAvg * 0.85).toFixed(2)}`}
-          />
-          <BarStatRow
-            label="HD space"
-            valueText={`${disk.toFixed(2)}% (${((disk / 100) * storageTotalGiB).toFixed(1)} GiB of ${storageTotalGiB} GiB)`}
-            pct={disk}
-            color={OLIVE}
-          />
-          <PlainStatRow label="Network" value={`↓ ${netDown.toFixed(1)} · ↑ ${netUp.toFixed(1)} Mbps`} />
-
-          <div className="my-1 border-t border-zinc-200 dark:border-zinc-800" />
-
-          <div className="pt-3">
-            <PlainStatRow label="Operating System" value={os} />
-            <PlainStatRow label="Region" value={region} />
-            <PlainStatRow
-              label="Health"
-              value={
-                <span className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: EMERALD }} />
-                  Healthy — 3 / 3 OSDs up
-                </span>
-              }
-            />
-            <PlainStatRow
-              label="VM Status"
-              value={
-                <span className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: EMERALD }} />
-                  Running
-                </span>
-              }
-            />
-          </div>
-        </MonitorPanel>
-
         <MonitorPanel
           title="CPU Usage"
           legend={[

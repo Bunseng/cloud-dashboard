@@ -61,7 +61,7 @@ export function StorageUsagePanel({
   onCancelSchedule?: () => void;
 }) {
   return (
-    <div className="w-[320px] shrink-0 space-y-5">
+    <div className="min-w-0 space-y-5">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Usage</h2>
         <BillingDashboardButton compact />
@@ -69,8 +69,10 @@ export function StorageUsagePanel({
       <p className="-mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">02 JUL - 02 AUG</p>
 
       <ServicePlanCard
+        title="Storage"
         planName="Free"
         stats={STORAGE_PLAN_STATS}
+        daysLeft={18}
         showFooter={false}
         onUpgrade={onUpgrade}
         scheduledUpgrade={scheduledUpgrade}
@@ -78,8 +80,14 @@ export function StorageUsagePanel({
       />
 
       <div className="grid grid-cols-2 gap-4">
-        <RadialGauge label="Size" value={0} max={1} unit="GB" />
-        <RadialGauge label="Transfer" value={0} max={1024} unit="GB" />
+        <RadialGauge label="Size" value={0} max={1} unit="GB" tooltip="Storage used across all buckets." />
+        <RadialGauge
+          label="Transfer"
+          value={0}
+          max={1024}
+          unit="GB"
+          tooltip="Outbound transfer used this billing period."
+        />
       </div>
 
       <div className="flex items-center justify-between gap-2">

@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
+import { Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { ChevronRight } from "@/components/animate-ui/icons/chevron-right";
@@ -172,22 +173,30 @@ export type PlanStat = string[];
 export const PLAN_STATS: PlanStat[] = [
   ["Status", "Active", "text-emerald-600 dark:text-emerald-400"],
   ["Renews On", "Aug 2, 2026"],
-  ["Pricing", "FREE"],
+  ["Price", "FREE"],
   ["CPU", "0.5 CORE"],
   ["RAM", "512 MB"],
   ["Transfer", "1024 GB"],
 ];
 
+// Canned "days left" values cycled across a subscription list's cards —
+// fixture data like every other number here, not computed from the
+// (static) "Renews On" date.
+const DEFAULT_DAYS_LEFT_CYCLE = [18, 8, 25, 12, 30];
+
 export function ServicePlanCard({
   title = "Plan",
   name,
+  tags,
   resourceLabel,
   onSelect,
   onUpgrade,
   stats = PLAN_STATS,
   showFooter = true,
+  showUpgrade = true,
   footerLabel,
   planName = "Free",
+  daysLeft,
   scheduledUpgrade,
   onCancelSchedule,
 }: {
@@ -197,13 +206,25 @@ export function ServicePlanCard({
   // subscription slot reads as more than just a number, especially once
   // it can hold more than one item (Run App's stacks).
   name?: ReactNode;
+  // Same idea as `name`, but for the common case of several short
+  // resource names (stacks, services) — rendered as individual pills
+  // rather than one comma-joined line. Takes priority over `name`.
+  tags?: string[];
   resourceLabel?: string;
   onSelect?: () => void;
   onUpgrade?: () => void;
   stats?: PlanStat[];
   showFooter?: boolean;
+  // Hidden on subscription-list cards (upgrading from a grid of several
+  // subscriptions at once isn't a real action) — detail-page sidebars
+  // keep it, since that's the one subscription you're actually managing.
+  showUpgrade?: boolean;
   footerLabel?: ReactNode;
   planName?: string;
+  // Days left until "Renews On" — a canned number like the rest of this
+  // mock's fixture data, not computed from the (static) renewal date, so
+  // it doesn't drift to 0/negative as real time passes it by.
+  daysLeft?: number;
   // Set once this subscription has an "Upgrade Plan" schedule pending —
   // shown as a banner instead of applying the change immediately.
   scheduledUpgrade?: ScheduledPlanChange | null;
@@ -216,81 +237,106 @@ export function ServicePlanCard({
     <ClickableSurface
       onClick={onSelect}
       className={
-        "rounded-xl border border-zinc-200 p-5 dark:border-zinc-800 " +
+        "flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 " +
         (clickable
           ? "cursor-pointer motion-safe:transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40"
           : "")
       }
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <p className="text-[15px] font-bold text-zinc-900 dark:text-zinc-50">{title}</p>
-          <Badge className={"border-transparent font-bold text-white hover:opacity-100 " + theme.badge}>
-            {planName.toUpperCase()}
-          </Badge>
-        </div>
-        <Button
-          variant="brand"
-          onClick={(e) => {
-            e.stopPropagation();
-            onUpgrade?.();
-          }}
-          className="h-auto shrink-0 rounded-md px-3 py-1.5 text-xs"
-        >
-          Upgrade Plan
-        </Button>
-      </div>
+      <div className={"h-1.5 w-full shrink-0 " + theme.badge} />
 
-      {name && (
-        <p className="mt-1 truncate text-[13px] text-zinc-500 dark:text-zinc-400">{name}</p>
-      )}
-
-      <dl className="mt-4 space-y-2 text-[13px]">
-        {stats.map(([label, value, valueClassName]) => (
-          <div key={label} className="flex items-center justify-between">
-            <dt className="text-zinc-500 dark:text-zinc-400">{label}</dt>
-            <dd
-              className={
-                "font-medium " +
-                (valueClassName || "text-zinc-900 dark:text-zinc-100")
-              }
-            >
-              {value}
-            </dd>
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <p className="truncate text-[15px] font-bold text-zinc-900 dark:text-zinc-50">{title}</p>
+            <Badge className={"shrink-0 border-transparent font-bold text-white hover:opacity-100 " + theme.badge}>
+              {planName.toUpperCase()}
+            </Badge>
+            {daysLeft !== undefined && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <Clock className="h-3 w-3" />
+                {daysLeft} days left
+              </span>
+            )}
           </div>
-        ))}
-      </dl>
-
-      {scheduledUpgrade && (
-        <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
-          <span>
-            Upgrading to <span className="font-semibold">{scheduledUpgrade.tierName}</span> on{" "}
-            {formatScheduleDate(scheduledUpgrade.date)}
-          </span>
-          {onCancelSchedule && (
-            <button
-              type="button"
+          {showUpgrade && (
+            <Button
+              variant="brand"
               onClick={(e) => {
                 e.stopPropagation();
-                onCancelSchedule();
+                onUpgrade?.();
               }}
-              className="shrink-0 font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+              className="h-auto shrink-0 rounded-md px-3 py-1.5 text-xs"
             >
-              Cancel
-            </button>
+              Upgrade Plan
+            </Button>
           )}
         </div>
-      )}
 
-      {showFooter && (
-        <>
-          <Separator className="my-4 bg-zinc-200 dark:bg-zinc-800" />
-          <span className="flex items-center gap-1 text-[13px] font-medium text-[#1C75BC] dark:text-[#6FA8D8]">
-            {footerLabel || `View ${resourceLabel} List`}
-            <ChevronRight className="h-3.5 w-3.5" animateOnHover animateOnTap />
-          </span>
-        </>
-      )}
+        {tags && tags.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className={"rounded-full px-2.5 py-1 text-[12px] font-medium " + theme.chip + " " + theme.icon}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : (
+          name && (
+            <p className="mt-1 truncate text-[13px] text-zinc-500 dark:text-zinc-400">{name}</p>
+          )
+        )}
+
+        <dl className="mt-4 space-y-2 text-[13px]">
+          {stats.map(([label, value, valueClassName]) => (
+            <div key={label} className="flex items-center justify-between">
+              <dt className="text-zinc-500 dark:text-zinc-400">{label}</dt>
+              <dd
+                className={
+                  "font-medium " +
+                  (valueClassName || "text-zinc-900 dark:text-zinc-100")
+                }
+              >
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+
+        {scheduledUpgrade && (
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+            <span>
+              Upgrading to <span className="font-semibold">{scheduledUpgrade.tierName}</span> on{" "}
+              {formatScheduleDate(scheduledUpgrade.date)}
+            </span>
+            {onCancelSchedule && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCancelSchedule();
+                }}
+                className="shrink-0 font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        )}
+
+        {showFooter && (
+          <>
+            <Separator className="my-4 bg-zinc-200 dark:bg-zinc-800" />
+            <span className="flex items-center gap-1 text-[13px] font-medium text-[#1C75BC] dark:text-[#6FA8D8]">
+              {footerLabel || `View ${resourceLabel} List`}
+              <ChevronRight className="h-3.5 w-3.5" animateOnHover animateOnTap />
+            </span>
+          </>
+        )}
+      </div>
     </ClickableSurface>
   );
 }
@@ -388,6 +434,8 @@ export function MultiSubscriptionView({
   stats,
   count = PLACEHOLDER_SUBSCRIPTION_COUNT,
   getSubscriptionName,
+  getSubscriptionTags,
+  getDaysLeft = (n) => DEFAULT_DAYS_LEFT_CYCLE[(n - 1) % DEFAULT_DAYS_LEFT_CYCLE.length],
 }: {
   resourceLabel: string;
   onSelectSubscription?: (index: number) => void;
@@ -406,6 +454,13 @@ export function MultiSubscriptionView({
   // instance, a server's hostname — shown under the card's title so a
   // subscription doesn't read as just an empty numbered slot.
   getSubscriptionName?: (index: number) => ReactNode;
+  // Same slot, but for subscriptions that can carry several short names
+  // at once (e.g. Run App's stacks) — rendered as pills instead of one
+  // joined string. Takes priority over `getSubscriptionName` when set.
+  getSubscriptionTags?: (index: number) => string[];
+  // "N days left" pill per card — defaults to a canned cycle so every
+  // subscription list gets one without each caller inventing numbers.
+  getDaysLeft?: (index: number) => number | undefined;
 }) {
   return (
     <div>
@@ -436,12 +491,15 @@ export function MultiSubscriptionView({
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-5">
+      <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: count }, (_, i) => (
           <ServicePlanCard
             key={i}
             title={`Subscription ${i + 1}`}
             name={getSubscriptionName?.(i + 1)}
+            tags={getSubscriptionTags?.(i + 1)}
+            daysLeft={getDaysLeft(i + 1)}
+            showUpgrade={false}
             resourceLabel={resourceLabel}
             footerLabel={footerLabel}
             planName={planName}

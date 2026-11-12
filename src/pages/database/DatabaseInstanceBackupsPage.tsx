@@ -66,7 +66,7 @@ export function DatabaseInstanceBackupsPage({
         ["Status", "Active", "text-emerald-600 dark:text-emerald-400"],
         ["Backup Frequency", plan.specs[0][1]],
         ["Retention", plan.specs[1][1]],
-        ["Pricing", plan.priceKHR === 0 ? "FREE" : `${plan.priceKHR.toLocaleString()} KHR/mo`],
+        ["Price", plan.priceKHR === 0 ? "FREE" : `${plan.priceKHR.toLocaleString()} KHR/mo`],
       ]
     : [];
 
@@ -98,8 +98,8 @@ export function DatabaseInstanceBackupsPage({
         {instanceName} — Back Up List
       </h1>
 
-      <div className="mt-5 flex items-start gap-6">
-        <div className="min-w-0 flex-1">
+      <div className="mt-5 grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">
           {instanceBackups.length === 0 ? (
             <EmptyState
               icon={HistoryIcon}
@@ -167,7 +167,7 @@ export function DatabaseInstanceBackupsPage({
             pages, so Backup reads as a real subscription, not a
             special case. Upgrading here is still the only way to
             change a Backup plan — always scoped to this one instance. */}
-        <div className="w-[320px] shrink-0 space-y-4">
+        <div className="min-w-0 space-y-4">
           <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Subscription</h2>
           <ServicePlanCard
             title="Backup Plan"

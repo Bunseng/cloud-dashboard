@@ -129,6 +129,12 @@ export const FEATURES: Feature[] = [
     // Same shape as Run App/Database — each subscription is its own
     // full root-access server, not a shared pool.
     multiSubscription: true,
-    secondaryNav: [{ label: "Snapshots", path: "/vps/snapshots" }],
+    // Both are account-level, not per-server: one SSH key authorizes
+    // any instance, and Snapshots spans every instance's own plan — so
+    // they sit beside Instances rather than inside one of them.
+    secondaryNav: [
+      { label: "SSH Keys", path: "/vps/ssh-keys" },
+      { label: "Snapshots", path: "/vps/snapshots" },
+    ],
   },
 ];
