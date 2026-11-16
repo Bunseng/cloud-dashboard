@@ -81,6 +81,7 @@ import {
 import { VpsMonitoringPage } from "../pages/vps/VpsMonitoringPage";
 import { VpsSnapshotsPage } from "../pages/vps/VpsSnapshotsPage";
 import { VpsSshKeysPage } from "../pages/vps/VpsSshKeysPage";
+import { VpsIpAddressesPage } from "../pages/vps/VpsIpAddressesPage";
 import { useVpsSnapshot } from "../pages/vps/VpsSnapshotContext";
 import {
   addVpsSubscription,
@@ -145,6 +146,15 @@ function DashboardOverviewRoute() {
       onOpenBilling={(tab) => navigate(`/billing/${tab ?? WALLET_TABS[0].key}`)}
       onOpenTopUp={() => navigate("/topup")}
       onSubscribe={() => subscribeNavigate("/planning")}
+    />
+  );
+}
+
+function VpsIpAddressesRoute() {
+  const navigate = useNavigate();
+  return (
+    <VpsIpAddressesPage
+      onOpenInstance={(name) => navigate(`/vps/${encodeURIComponent(name)}`)}
     />
   );
 }
@@ -922,9 +932,10 @@ export default function DashboardPage() {
         <Route path="/database/:instanceName/backups" element={<DatabaseInstanceBackupsRoute />} />
         <Route path="/vps" element={<VpsRoute />} />
         <Route path="/vps/snapshots" element={<VpsSnapshotsPage />} />
-        {/* Account-level, so it sits above /vps/:instanceName — otherwise
-            "ssh-keys" would be read as an instance name. */}
+        {/* Account-level, so these sit above /vps/:instanceName —
+            otherwise "ssh-keys" would be read as an instance name. */}
         <Route path="/vps/ssh-keys" element={<VpsSshKeysPage />} />
+        <Route path="/vps/ip-addresses" element={<VpsIpAddressesRoute />} />
         <Route path="/vps/:instanceName" element={<VpsInstanceRoute />} />
         <Route path="/vps/:instanceName/monitoring" element={<VpsMonitoringRoute />} />
         <Route path="/groups" element={<GroupsRoute />} />
