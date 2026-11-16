@@ -24,7 +24,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -38,7 +37,6 @@ import { ServicePlanCard } from "../../components/PlanCards";
 import {
   BillingDashboardButton,
   ConnectionRow,
-  CopyIconButton,
   PILL_TABS_LIST_CLASS,
   PILL_TAB_TRIGGER_CLASS,
   StatTile,
@@ -298,27 +296,6 @@ export function VpsInstanceDetailPage({
             Refresh
           </Button>
         </div>
-      </div>
-
-      <div className="mt-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 py-1 pl-2 pr-1 text-[13px] font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
-              <Globe className="h-3.5 w-3.5 shrink-0 text-[#1C75BC] dark:text-[#6FA8D8]" />
-              <span className="font-mono">{d.network.publicIp}</span>
-              <CopyIconButton value={d.network.publicIp} label="Public IP" iconClassName="h-3.5 w-3.5" />
-            </span>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-[260px] text-[12.5px] leading-snug">
-            <p className="font-semibold text-zinc-900 dark:text-zinc-100">Connect over SSH</p>
-            <p className="mt-0.5 font-mono text-zinc-700 dark:text-zinc-300">
-              {sshCommandFor(d.os, d.network.publicIp)}
-            </p>
-            <p className="mt-1.5 text-zinc-500 dark:text-zinc-400">
-              Private IP {d.network.privateIp} — reachable only from other servers in this region.
-            </p>
-          </TooltipContent>
-        </Tooltip>
       </div>
 
       {/* VPS Controls — same shape as Run App's own Stack Controls card:

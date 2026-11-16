@@ -27,6 +27,7 @@ import { FEATURES } from "../data/nav";
 import { PLACEHOLDER_SUBSCRIPTION_COUNT, WALLET_TABS } from "../data/billing";
 import { usePlanSchedule } from "../context/PlanScheduleContext";
 
+import { DashboardOverview } from "../pages/DashboardOverview";
 import { HomePage } from "../pages/HomePage";
 import ProjectsPage from "../pages/ProjectsPage";
 import { PlanningPage } from "../pages/PlanningPage";
@@ -129,104 +130,29 @@ function HomeRoute() {
   const navigate = useNavigate();
   return (
     <HomePage
-      onOpenService={(id: string) => navigate(`/dashboard/${id}`)}
+      onOpenService={(id: string) => navigate(`/${id}`)}
       onOpenPlanning={() => navigate("/planning")}
     />
   );
 }
 
-function DashboardRoute() {
-  const { tab } = useParams<{ tab: string }>();
+function DashboardOverviewRoute() {
   const navigate = useNavigate();
-  const dashboardTab = FEATURES.some((f) => f.id === tab) ? tab : FEATURES[0].id;
-  const { isFirstUser } = useFirstUser();
   const subscribeNavigate = useSubscribeNavigate();
-  const { getSchedule, cancelSchedule } = usePlanSchedule();
-
-  // Instance names differ per category (Database/VPS name theirs;
-  // Run App just uses the subscription number) — this is the one place
-  // that mapping is needed, to key each tab's per-card schedule.
-  const instanceNameFor = (featureId: string, n: number) =>
-    featureId === "database"
-      ? `DB Instance ${n}`
-      : featureId === "vps"
-      ? `VPS Instance ${n}`
-      : String(n);
-
   return (
-    <>
-      <h1 className="text-[30px] font-bold leading-none tracking-[-0.02em] text-zinc-900 dark:text-zinc-50">
-        Dashboard
-      </h1>
-
-      <Tabs value={dashboardTab} onValueChange={(id) => navigate(`/dashboard/${id}`)} className="mt-7">
-        <TabsList className={PILL_TABS_LIST_CLASS}>
-          {FEATURES.map((f) => (
-            <TabsTrigger key={f.id} value={f.id} className={PILL_TAB_TRIGGER_CLASS}>
-              {f.tabLabel}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {FEATURES.map((f) => (
-          <TabsContent key={f.id} value={f.id} className="mt-6">
-            {isFirstUser ? (
-              <EmptyState
-                icon={f.icon}
-                title={`No ${f.navLabel} subscriptions yet`}
-                description={`Subscribe to a ${f.resourceLabel} plan to get started with ${f.navLabel}.`}
-                actionLabel="Subscribe Plan"
-                onAction={() =>
-                  subscribeNavigate(
-                    `/subscribe/${f.id}/${f.id === "database" || f.id === "vps" ? "standard" : f.id === "storage" ? "free" : "basic"}`
-                  )
-                }
-              />
-            ) : f.multiSubscription ? (
-              <MultiSubscriptionView
-                resourceLabel={f.resourceLabel}
-                planName={f.id === "database" || f.id === "vps" ? "Standard" : "Basic"}
-                stats={
-                  f.id === "database"
-                    ? DATABASE_SUBSCRIPTION_STATS
-                    : f.id === "vps"
-                    ? VPS_SUBSCRIPTION_STATS
-                    : RUNAPP_PLAN_STATS
-                }
-                // Picking a subscription here jumps straight into its
-                // detail (instance / stack list) — no intermediate
-                // "pick a subscription" list, since that's exactly what
-                // this card already is.
-                onSelectSubscription={(n: number) => {
-                  if (f.id === "database") {
-                    navigate(`/database/${encodeURIComponent(`DB Instance ${n}`)}`);
-                  } else if (f.id === "vps") {
-                    navigate(`/vps/${encodeURIComponent(`VPS Instance ${n}`)}`);
-                  } else {
-                    navigate(`/runapp/${n}`);
-                  }
-                }}
-                onNewSubscription={() => navigate("/planning")}
-                onUpgrade={(n: number) => {
-                  const currentTierId = f.id === "database" || f.id === "vps" ? "standard" : "basic";
-                  navigate(
-                    `/subscribe/${f.id}/${currentTierId}?upgrade=1&instance=${encodeURIComponent(instanceNameFor(f.id, n))}`
-                  );
-                }}
-                getScheduledUpgrade={(n: number) => getSchedule(`${f.id}:${instanceNameFor(f.id, n)}`)}
-                onCancelSchedule={(n: number) => cancelSchedule(`${f.id}:${instanceNameFor(f.id, n)}`)}
-              />
-            ) : (
-              <SubscriptionPlanView
-                resourceLabel={f.resourceLabel}
-                onSelectPlan={() => navigate(`/${f.id}`)}
-              />
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
-    </>
+    <DashboardOverview
+      onOpenService={(id) => navigate(`/${id}`)}
+      onOpenBilling={(tab) => navigate(`/billing/${tab ?? WALLET_TABS[0].key}`)}
+      onOpenTopUp={() => navigate("/topup")}
+      onSubscribe={() => subscribeNavigate("/planning")}
+    />
   );
+}
+
+function LegacyDashboardTabRedirect() {
+  const { tab } = useParams<{ tab: string }>();
+  const target = FEATURES.some((f) => f.id === tab) ? `/${tab}` : "/dashboard";
+  return <Navigate to={target} replace />;
 }
 
 function BillingRoute() {
@@ -966,8 +892,11 @@ export default function DashboardPage() {
 
       <Route element={<Layout dark={dark} onToggleTheme={toggleTheme} />}>
         <Route path="/" element={<HomeRoute />} />
-        <Route path="/dashboard" element={<Navigate to={`/dashboard/${FEATURES[0].id}`} replace />} />
-        <Route path="/dashboard/:tab" element={<DashboardRoute />} />
+        <Route path="/dashboard" element={<DashboardOverviewRoute />} />
+        {/* The per-service tab page is gone — each service's own page
+            already shows that same subscription list, so old links land
+            there instead of 404ing. */}
+        <Route path="/dashboard/:tab" element={<LegacyDashboardTabRedirect />} />
         <Route path="/projects" element={<ProjectsRoute />} />
         <Route path="/projects/:projectName" element={<ProjectServiceListRoute />} />
         <Route path="/projects/:projectName/:serviceName" element={<ProjectServiceDetailRoute />} />

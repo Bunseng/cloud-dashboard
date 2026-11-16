@@ -1,4 +1,4 @@
-import { useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
+import { useState, type ComponentType, type CSSProperties } from "react";
 import { type LucideIcon } from "lucide-react";
 
 import { AppWindow } from "@/components/animate-ui/icons/app-window";
@@ -11,7 +11,6 @@ import { Rocket } from "@/components/animate-ui/icons/rocket";
 import { Search } from "@/components/animate-ui/icons/search";
 import { Server } from "@/components/animate-ui/icons/server";
 import { Sparkles } from "@/components/animate-ui/icons/sparkles";
-import { Wallet } from "@/components/animate-ui/icons/wallet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -202,48 +201,6 @@ function HomeHero({
             All Plans
           </Button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function QuickStat({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  index,
-}: {
-  icon:
-    | LucideIcon
-    | ComponentType<{
-        className?: string;
-        strokeWidth?: number;
-        animate?: boolean;
-        animateOnHover?: boolean;
-        animateOnTap?: boolean;
-        animateOnView?: boolean;
-        loop?: boolean;
-      }>;
-  label: string;
-  value: string;
-  sub?: ReactNode;
-  index: number;
-}) {
-  return (
-    <div
-      style={stagger(index)}
-      className="flex items-center gap-3.5 rounded-xl border border-[#e5e7eb] p-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-500 motion-safe:fill-mode-both dark:border-zinc-800"
-    >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FF] dark:bg-zinc-800">
-        <Icon className="h-[18px] w-[18px] text-[#1C75BC] dark:text-[#6FA8D8]" strokeWidth={1.75} animateOnView />
-      </span>
-      <div className="min-w-0">
-        <p className="truncate text-[13px] text-[#71717a] dark:text-zinc-400">{label}</p>
-        <p className="truncate text-[15px] font-bold text-[#17171c] dark:text-zinc-50">
-          {value}
-          {sub && <span className="ml-1.5 text-[13px] font-medium text-[#71717a] dark:text-zinc-400">{sub}</span>}
-        </p>
       </div>
     </div>
   );
@@ -488,47 +445,16 @@ export function HomePage({
 }) {
   const { isFirstUser } = useFirstUser();
 
-  const activeSubscriptions = isFirstUser
-    ? 0
-    : FEATURES.filter((f) => f.multiSubscription).length * PLACEHOLDER_SUBSCRIPTION_COUNT +
-      BILLING_RECORDS.filter((r) => r.category === "storage" && r.status.label === "Active").length;
-
-  // Neither figure appears anywhere else on Home — Billing is the only
-  // other place spend shows up, and this page never lists it.
-  const activeRecords = isFirstUser ? [] : BILLING_RECORDS.filter((r) => r.status.label === "Active");
-  const spendKHR = activeRecords
-    .filter((r) => r.currency === "KHR")
-    .reduce((sum, r) => sum + r.amount, 0);
-  const spendBG = activeRecords
-    .filter((r) => r.currency === "BG")
-    .reduce((sum, r) => sum + r.amount, 0);
-
   return (
     <div>
       <HomeHero onOpenPlanning={onOpenPlanning} isFirstUser={isFirstUser} />
 
-      <div className="mt-6 grid grid-cols-2 gap-4">
-        <QuickStat
-          icon={Sparkles}
-          label="Active Subscriptions"
-          value={`${activeSubscriptions} running`}
-          index={0}
-        />
-        <QuickStat
-          icon={Wallet}
-          label="This Month's Spend"
-          value={`${spendKHR.toLocaleString()} KHR`}
-          sub={spendBG > 0 ? `+ ${spendBG.toLocaleString()} BG` : undefined}
-          index={1}
-        />
-      </div>
-
-      <PromotionsSection startIndex={2} />
+      <PromotionsSection startIndex={0} />
       <HomeSection
         title="Cloud Service"
         description="Storage, compute, and managed databases for your infrastructure."
         cards={CLOUD_SERVICE_CARDS}
-        startIndex={2 + PROMOTIONS.length}
+        startIndex={PROMOTIONS.length}
         onOpenService={onOpenService}
         isFirstUser={isFirstUser}
       />
@@ -536,7 +462,7 @@ export function HomePage({
         title="Media & Content"
         description="Streaming, delivery, and content tools."
         cards={MEDIA_CONTENT_CARDS}
-        startIndex={2 + PROMOTIONS.length + CLOUD_SERVICE_CARDS.length}
+        startIndex={PROMOTIONS.length + CLOUD_SERVICE_CARDS.length}
         onOpenService={onOpenService}
         isFirstUser={isFirstUser}
       />

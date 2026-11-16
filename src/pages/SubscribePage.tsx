@@ -99,7 +99,7 @@ type ScheduleChoice = "now" | "later";
    Upgrades skip all of this; they're resizing a server that already
    exists. */
 const VPS_WIZARD_STEPS: { step: Step; label: string }[] = [
-  { step: "resource", label: "CPU" },
+  { step: "resource", label: "Plan" },
   { step: "os", label: "Server Details" },
   { step: "location", label: "Location" },
   { step: "ssh", label: "SSH Key" },
@@ -223,37 +223,129 @@ function finalSpecs(
    switching it on folds its price into the one checkout total. */
 const SNAPSHOT_TIERS = SERVICE_PRICING.vpsSnapshot;
 
-// Splits the real VPS rate card (SERVICE_PRICING.vps) into Shared vCPU
-// (burstable, lower cost) vs Dedicated vCPU (guaranteed cores, higher
-// throughput) — same tiers/prices used everywhere else, just grouped by
-// what kind of CPU access they actually give you.
-const VPS_RESOURCE_TYPES: {
-  id: string;
-  label: string;
-  description: string;
-  tierIds: string[];
-  // Dedicated hardware isn't orderable yet — the option stays visible
-  // (so the two-tier offering reads as intentional) but can't be
-  // picked, rather than disappearing and reappearing later.
-  disabled?: boolean;
-}[] = [
+/* Two ways to size a server: take one of the ready-made plans off the
+   rate card, or set each resource yourself. Custom isn't a different
+   product — it's the same per-unit rates the plans are built from, so
+   a custom box matching Standard's specs costs exactly what Standard
+   costs. */
+const VPS_PLAN_MODES: { id: VpsPlanMode; label: string; description: string }[] = [
   {
-    id: "shared",
-    label: "Shared CPU",
-    description: "Cost-effective performance with cores shared across VMs — great for most workloads.",
-    tierIds: ["nano", "basic", "standard", "premium"],
+    id: "preset",
+    label: "Plan",
+    description: "Pick a ready-made plan — the quickest way to get a server sized and running.",
   },
   {
-    id: "dedicated",
-    label: "Dedicated CPU",
-    description: "Guaranteed, uninterrupted access to physical cores for consistent, high-throughput performance.",
-    tierIds: ["pro", "enterprise"],
-    disabled: true,
+    id: "custom",
+    label: "Custom Plan",
+    description: "Set each resource yourself and pay for exactly what you choose.",
   },
 ];
 
-function resourceTypeForTier(tierId: string): string {
-  return VPS_RESOURCE_TYPES.find((r) => r.tierIds.includes(tierId))?.id ?? VPS_RESOURCE_TYPES[0].id;
+type VpsPlanMode = "preset" | "custom";
+
+/* The custom builder's rows — same three resources, same per-unit
+   rates, and the same control shape as the Service Specification
+   Add-on. The difference is that these are absolute amounts for the
+   whole server rather than extras stacked on a plan, so the lists
+   start at a usable minimum instead of at 0. */
+const VPS_CUSTOM_SPECS: {
+  key: string;
+  specLabel: string;
+  label: string;
+  unit: string;
+  rateKHR: number;
+  options: number[];
+}[] = [
+  {
+    key: "vcpu",
+    specLabel: "vCPU",
+    label: "vCPU (Processors)",
+    unit: "Core",
+    rateKHR: 10_000,
+    options: [1, 2, 4, 8, 16, 32, 64, 128],
+  },
+  {
+    key: "ram",
+    specLabel: "RAM",
+    label: "RAM (Memory)",
+    unit: "GB",
+    rateKHR: 5_000,
+    options: [1, 2, 4, 8, 16, 32, 64, 128, 256],
+  },
+  {
+    key: "storage",
+    specLabel: "SSD Storage",
+    label: "Storage",
+    unit: "GB",
+    rateKHR: 500,
+    options: [25, 50, 80, 160, 320, 500, 1000, 2000],
+  },
+];
+
+const VPS_CUSTOM_DEFAULTS: Record<string, number> = { vcpu: 2, ram: 4, storage: 80 };
+
+/* "2 Core · 4 GB · 80 GB · 4 TB" tells you nothing about which number
+   is which — the units repeat and the labels are missing. Each spec is
+   rendered as its own chip carrying what the number actually is, so a
+   plan row can be read without already knowing the order. */
+const SPEC_CHIP_LABEL: Record<string, string> = {
+  vCPU: "vCPU",
+  RAM: "RAM",
+  "SSD Storage": "SSD",
+  Bandwidth: "Transfer",
+};
+
+function specChipText([label, value]: [string, string]): string {
+  const short = SPEC_CHIP_LABEL[label] ?? label;
+  // "2 Core" already names its unit; everything else reads as
+  // "<amount> <what it is>".
+  return label === "vCPU" ? `${value.replace(/\s*Core/i, "")} ${short}` : `${value} ${short}`;
+}
+
+function PlanSpecChips({ specs }: { specs: readonly (readonly [string, string])[] }) {
+  return (
+    <span className="mt-1.5 flex flex-wrap gap-1.5">
+      {specs.map(([label, value]) => (
+        <span
+          key={label}
+          className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11.5px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+        >
+          {specChipText([label, value])}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function customSpecQty(chosen: Record<string, number>, key: string): number {
+  return chosen[key] ?? VPS_CUSTOM_DEFAULTS[key] ?? VPS_CUSTOM_SPECS[0].options[0];
+}
+
+function customPlanPriceKHR(chosen: Record<string, number>): number {
+  return VPS_CUSTOM_SPECS.reduce((sum, s) => sum + customSpecQty(chosen, s.key) * s.rateKHR, 0);
+}
+
+/* A custom build is handed to the rest of the flow as an ordinary
+   plan, so the rail card, totals, checkout and the provisioned
+   instance all read it exactly the way they read Standard or Premium —
+   nothing downstream needs to know the difference. */
+function customPlan(chosen: Record<string, number>): PricingPlan {
+  const vcpu = customSpecQty(chosen, "vcpu");
+  return {
+    id: "custom",
+    name: "Custom Plan",
+    priceKHR: customPlanPriceKHR(chosen),
+    period: "mo",
+    description: "Built to your own sizing, billed at the standard per-resource rates.",
+    specs: [
+      ["vCPU", `${vcpu} Core`],
+      ["RAM", `${customSpecQty(chosen, "ram")} GB`],
+      ["SSD Storage", `${customSpecQty(chosen, "storage")} GB`],
+      // Bandwidth isn't sold separately — it scales with the cores, the
+      // same way it does across the plans.
+      ["Bandwidth", `${vcpu * 2} TB`],
+    ],
+  };
 }
 
 /* The wizard runs top to bottom as a vertical accordion instead of a
@@ -368,8 +460,11 @@ function vpsStepSummary(
 ): string | undefined {
   switch (step) {
     case "resource": {
-      const type = VPS_RESOURCE_TYPES.find((r) => r.id === resourceTypeForTier(ctx.tier.id));
-      const label = `${type?.label ?? ""} · ${ctx.tier.name}`;
+      const mode = VPS_PLAN_MODES.find((m) => m.id === (ctx.tier.id === "custom" ? "custom" : "preset"));
+      const label =
+        ctx.tier.id === "custom"
+          ? `${mode?.label} · ${ctx.tier.specs.map(specChipText).join(" · ")}`
+          : `${mode?.label} · ${ctx.tier.name}`;
       // The spec add-on lives inside this step now, so its effect
       // belongs on this row's one-line summary too.
       const extra = specExtraCost(ctx.tier, ctx.specChoices, ctx.specEnabled);
@@ -386,7 +481,7 @@ function vpsStepSummary(
       return names.length ? names.join(", ") : "No key added";
     }
     case "network":
-      return "IPv4";
+      return "IPv4 · Public address";
     case "snapshot": {
       if (!ctx.snapshotEnabled) return "Off";
       const t = SNAPSHOT_TIERS.find((s) => s.id === ctx.snapshotTierId) ?? SNAPSHOT_TIERS[0];
@@ -433,7 +528,7 @@ function VpsPlanSummaryCard({
       <div className="flex items-center gap-2">
         <p className="text-[15px] font-bold text-zinc-900 dark:text-zinc-50">{tier.name}</p>
         <Badge className={"border-transparent font-bold text-white hover:opacity-100 " + theme.badge}>
-          {resourceTypeForTier(tier.id) === "dedicated" ? "Dedicated" : "Shared"}
+          {tier.id === "custom" ? "Custom" : "Shared"}
         </Badge>
       </div>
       <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">{tier.description}</p>
@@ -538,6 +633,10 @@ function VpsResourceStep({
   tierId,
   onSelectTier,
   tier,
+  planMode,
+  onPlanModeChange,
+  customChoices,
+  onCustomChange,
   specEnabled,
   onSpecEnabledChange,
   specChoices,
@@ -546,54 +645,30 @@ function VpsResourceStep({
   tierId: string;
   onSelectTier: (id: string) => void;
   tier: PricingPlan;
+  planMode: VpsPlanMode;
+  onPlanModeChange: (mode: VpsPlanMode) => void;
+  customChoices: Record<string, number>;
+  onCustomChange: (key: string, qty: number) => void;
   specEnabled: boolean;
   onSpecEnabledChange: (enabled: boolean) => void;
   specChoices: Record<string, number>;
   onSpecChange: (key: string, added: number) => void;
 }) {
   const tiers = SERVICE_PRICING.vps;
-  const resourceType = resourceTypeForTier(tierId);
-
-  function selectResourceType(id: string) {
-    const group = VPS_RESOURCE_TYPES.find((r) => r.id === id);
-    if (!group || group.disabled) return;
-    if (!group.tierIds.includes(tierId)) {
-      onSelectTier(group.tierIds[0]);
-    }
-  }
 
   return (
     <>
       <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
-        Choose how this server&apos;s CPU cores are allocated.
+        Start from one of our plans, or size the server yourself.
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
-        {VPS_RESOURCE_TYPES.map((r) => {
-          const selected = r.id === resourceType && !r.disabled;
-          if (r.disabled) {
-            return (
-              <div
-                key={r.id}
-                aria-disabled
-                className="cursor-not-allowed rounded-xl border border-zinc-200 bg-zinc-50/60 p-4 opacity-60 dark:border-zinc-800 dark:bg-zinc-900/40"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-                    {r.label}
-                  </span>
-                  <span className="shrink-0 rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                    Coming soon
-                  </span>
-                </div>
-                <p className="mt-1 text-[12px] text-zinc-400 dark:text-zinc-500">{r.description}</p>
-              </div>
-            );
-          }
+        {VPS_PLAN_MODES.map((m) => {
+          const selected = m.id === planMode;
           return (
             <ClickableSurface
-              key={r.id}
-              onClick={() => selectResourceType(r.id)}
+              key={m.id}
+              onClick={() => onPlanModeChange(m.id)}
               className={
                 "rounded-xl border p-4 motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 " +
                 (selected
@@ -602,7 +677,7 @@ function VpsResourceStep({
               }
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{r.label}</span>
+                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{m.label}</span>
                 <span
                   className={
                     "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border " +
@@ -612,21 +687,19 @@ function VpsResourceStep({
                   {selected && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
                 </span>
               </div>
-              <p className="mt-1 text-[12px] text-zinc-500 dark:text-zinc-400">{r.description}</p>
+              <p className="mt-1 text-[12px] text-zinc-500 dark:text-zinc-400">{m.description}</p>
             </ClickableSurface>
           );
         })}
       </div>
 
-      <p className="mt-5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Plan</p>
-      <RadioGroup
-        value={tierId}
-        onValueChange={onSelectTier}
-        className="mt-2.5 space-y-2"
-      >
-        {tiers
-          .filter((t) => VPS_RESOURCE_TYPES.find((r) => r.id === resourceType)?.tierIds.includes(t.id))
-          .map((t) => {
+      {planMode === "custom" ? (
+        <VpsCustomPlanBuilder chosen={customChoices} onChange={onCustomChange} />
+      ) : (
+        <>
+          <p className="mt-5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Plan</p>
+          <RadioGroup value={tierId} onValueChange={onSelectTier} className="mt-2.5 space-y-2">
+            {tiers.map((t) => {
             const selected = t.id === tierId;
             const id = `vps-tier-${t.id}`;
             return (
@@ -648,30 +721,101 @@ function VpsResourceStep({
                       {t.priceKHR.toLocaleString()} KHR/{t.period}
                     </span>
                   </span>
-                  <span className="mt-0.5 block text-[12px] text-zinc-500 dark:text-zinc-400">
-                    {t.specs.map(([, value]) => value).join(" · ")}
-                  </span>
+                  <PlanSpecChips specs={t.specs} />
                 </span>
                 <RadioGroupItem value={t.id} id={id} className="ml-2 shrink-0" />
               </Label>
             );
           })}
-      </RadioGroup>
+          </RadioGroup>
 
-      <VpsSpecAddOn
-        tier={tier}
-        enabled={specEnabled}
-        onEnabledChange={onSpecEnabledChange}
-        chosen={specChoices}
-        onChange={onSpecChange}
-      />
+          <VpsSpecAddOn
+            tier={tier}
+            enabled={specEnabled}
+            onEnabledChange={onSpecEnabledChange}
+            chosen={specChoices}
+            onChange={onSpecChange}
+          />
+        </>
+      )}
     </>
   );
 }
 
-/* Step 2 — Location. Same province data Create VPS already uses for an
-   existing instance's own form, so "roadmap only" provinces read the
-   same way everywhere in the app. */
+/* The custom builder — deliberately the same card, rows and dropdowns
+   as the Service Specification Add-on, since it's the same act of
+   choosing resources. What differs is that each row is the server's
+   whole amount, and the running total underneath is the plan price
+   rather than an extra on top of one. */
+function VpsCustomPlanBuilder({
+  chosen,
+  onChange,
+}: {
+  chosen: Record<string, number>;
+  onChange: (key: string, qty: number) => void;
+}) {
+  const total = customPlanPriceKHR(chosen);
+
+  return (
+    <div className="mt-5 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Custom Specification</p>
+      <p className="mt-0.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
+        Set each resource for this server. Bandwidth scales with the cores — 2 TB per vCPU.
+      </p>
+
+      <div className="mt-4 space-y-2">
+        {VPS_CUSTOM_SPECS.map((s) => {
+          const qty = customSpecQty(chosen, s.key);
+          return (
+            <div
+              key={s.key}
+              className="rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-800"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">
+                  {s.label}
+                </span>
+                <Select value={String(qty)} onValueChange={(v) => onChange(s.key, Number(v))}>
+                  <SelectTrigger className="h-8 w-[150px] shrink-0 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {s.options.map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n.toLocaleString()} {s.unit}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-3">
+                <span className="text-[12px] text-zinc-500 dark:text-zinc-400">
+                  {s.rateKHR.toLocaleString()} KHR per {s.unit}
+                </span>
+                <span className="shrink-0 text-[12px] font-semibold text-zinc-900 dark:text-zinc-100">
+                  {(qty * s.rateKHR).toLocaleString()} KHR/mo
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+        <span className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">
+          Custom plan total
+        </span>
+        <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-50">
+          {total.toLocaleString()} KHR/mo
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* Step 2 — Location. Same list Create VPS already uses for an existing
+   instance's own form, so where the datacenters are reads the same way
+   everywhere in the app. */
 function VpsLocationStep({
   province,
   onProvinceChange,
@@ -682,7 +826,7 @@ function VpsLocationStep({
   return (
     <>
       <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
-        Pick the datacenter this server will run in.
+        Pick the Phnom Penh datacenter this server will run in.
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -786,34 +930,82 @@ function VpsSshKeyStep({
    and locked on; IPv6/Private Network are modeled as the same
    multi-select checkboxes they'll become once they ship, just disabled
    with a "Coming soon" hint instead of hidden entirely. */
-function VpsNetworkStep() {
-  const options = [
-    { id: "ipv4", label: "IPv4", hint: "A public IPv4 address, included by default.", checked: true, disabled: true },
-    { id: "ipv6", label: "IPv6", hint: "Coming soon.", checked: false, disabled: true },
-    { id: "private", label: "Private Network", hint: "Coming soon.", checked: false, disabled: true },
-  ];
+/* Networking is the step most likely to be read by someone who doesn't
+   already know the jargon, so each row says what the thing *is* and
+   what it's for in plain words — "Coming soon." on its own told you
+   nothing about what you'd be getting later. */
+const VPS_NETWORK_OPTIONS: {
+  id: string;
+  label: string;
+  what: string;
+  why: string;
+  included?: boolean;
+}[] = [
+  {
+    id: "ipv4",
+    label: "IPv4",
+    what: "A public address on the internet — how people reach your server.",
+    why: "Point a domain at it, open it in a browser, or SSH in from anywhere. The address is assigned once the server is provisioned.",
+    included: true,
+  },
+  {
+    id: "private",
+    label: "Private Network",
+    what: "A closed network only your own servers can see — no public access.",
+    why: "Let a server talk to your database or another server without going over the public internet, and without spending your transfer quota.",
+  },
+];
 
+function VpsNetworkStep() {
   return (
     <>
       <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
-        Choose which networks this server should have. More than one can be selected.
+        How this server can be reached. Every server gets a public IPv4 address; private networking
+        is on the way.
       </p>
 
       <div className="mt-4 space-y-2">
-        {options.map((o) => (
-          <Label
+        {VPS_NETWORK_OPTIONS.map((o) => (
+          <div
             key={o.id}
-            htmlFor={`network-${o.id}`}
-            className="flex cursor-not-allowed items-start justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 font-normal dark:border-zinc-800"
+            className={
+              "rounded-lg border px-3 py-3 " +
+              (o.included
+                ? "border-[#1C75BC]/40 bg-[#EFF6FF]/60 dark:border-[#6FA8D8]/30 dark:bg-zinc-900"
+                : "border-zinc-200 dark:border-zinc-800")
+            }
           >
-            <span className="flex items-start gap-3">
-              <Checkbox id={`network-${o.id}`} checked={o.checked} disabled={o.disabled} className="mt-0.5" />
-              <span>
-                <span className="block text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">{o.label}</span>
-                <span className="mt-0.5 block text-[12px] text-zinc-500 dark:text-zinc-400">{o.hint}</span>
-              </span>
-            </span>
-          </Label>
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id={`network-${o.id}`}
+                checked={Boolean(o.included)}
+                disabled
+                className="mt-0.5 shrink-0"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">
+                    {o.label}
+                  </span>
+                  {o.included ? (
+                    <span className="rounded-full bg-[#1C75BC] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                      Included
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                      Coming soon
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-[12.5px] leading-snug text-zinc-600 dark:text-zinc-300">
+                  {o.what}
+                </p>
+                <p className="mt-0.5 text-[12px] leading-snug text-zinc-500 dark:text-zinc-400">
+                  {o.why}
+                </p>
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     </>
@@ -958,9 +1150,7 @@ function VpsSnapshotStep({
                         {t.priceKHR.toLocaleString()} KHR/{t.period}
                       </span>
                     </span>
-                    <span className="mt-0.5 block text-[12px] text-zinc-500 dark:text-zinc-400">
-                      {t.specs.map(([, value]) => value).join(" · ")}
-                    </span>
+                    <PlanSpecChips specs={t.specs} />
                   </span>
                   <RadioGroupItem value={t.id} id={id} className="ml-2 shrink-0" />
                 </Label>
@@ -1505,6 +1695,11 @@ export function SubscribePage({
   const [tierId, setTierId] = useState(
     tiers.some((t) => t.id === initialTierId) ? initialTierId : tiers[0].id
   );
+  // Preset vs. a self-sized server. The chosen plan is kept either way,
+  // so switching back to Plan returns to whatever tier was picked
+  // rather than resetting it.
+  const [vpsPlanMode, setVpsPlanMode] = useState<VpsPlanMode>("preset");
+  const [customSpecChoices, setCustomSpecChoices] = useState<Record<string, number>>({});
   const [scheduleChoice, setScheduleChoice] = useState<ScheduleChoice>("now");
   const [scheduledDate, setScheduledDate] = useState("");
   const [hostname, setHostname] = useState("");
@@ -1577,7 +1772,12 @@ export function SubscribePage({
 
   const currentTierId = isUpgrade ? initialTierId : undefined;
   const currentTierName = tiers.find((t) => t.id === currentTierId)?.name;
-  const tier = tiers.find((t) => t.id === tierId) ?? tiers[0];
+  const presetTier = tiers.find((t) => t.id === tierId) ?? tiers[0];
+  // A custom build is handed downstream as an ordinary plan, so the
+  // rail, totals, checkout and the provisioned instance all read it the
+  // same way they read a preset one.
+  const tier =
+    isNewVps && vpsPlanMode === "custom" ? customPlan(customSpecChoices) : presetTier;
   const priceDisplay = tier.priceKHR === 0 ? "FREE" : `${tier.priceKHR.toLocaleString()} KHR/${tier.period}`;
   const isFree = tier.priceKHR === 0;
   // The only thing standing between here and checkout. OS always has a
@@ -1587,10 +1787,13 @@ export function SubscribePage({
   // protection when it's switched on. Every VPS price shown from here
   // on — rail total, Checkout button, payment dialog — is this number.
   const snapshotTier = SNAPSHOT_TIERS.find((t) => t.id === snapshotTierId) ?? SNAPSHOT_TIERS[0];
-  const specExtraKHR = specExtraCost(tier, specChoices, specEnabled);
+  // The spec add-on scales a *plan*; a custom build already sets every
+  // resource directly, so it never stacks on top of one.
+  const addOnsActive = specEnabled && !(isNewVps && vpsPlanMode === "custom");
+  const specExtraKHR = specExtraCost(tier, specChoices, addOnsActive);
   const vpsTotalKHR =
     tier.priceKHR + specExtraKHR + (snapshotEnabled ? snapshotTier.priceKHR : 0);
-  const resolvedSpecs = finalSpecs(tier, specChoices, specEnabled);
+  const resolvedSpecs = finalSpecs(tier, specChoices, addOnsActive);
   const purchasedSpecs = {
     cpu: resolvedSpecs["vCPU"],
     memory: resolvedSpecs["RAM"],
@@ -1666,7 +1869,7 @@ export function SubscribePage({
                     snapshotEnabled,
                     snapshotTierId,
                     specChoices,
-                    specEnabled,
+                    specEnabled: addOnsActive,
                   })}
                   onToggle={() => toggleVpsStep(s.step)}
                   nextLabel={VPS_WIZARD_STEPS[i + 1]?.label}
@@ -1680,7 +1883,13 @@ export function SubscribePage({
                     <VpsResourceStep
                       tierId={tierId}
                       onSelectTier={setTierId}
-                      tier={tier}
+                      tier={presetTier}
+                      planMode={vpsPlanMode}
+                      onPlanModeChange={setVpsPlanMode}
+                      customChoices={customSpecChoices}
+                      onCustomChange={(key, qty) =>
+                        setCustomSpecChoices((prev) => ({ ...prev, [key]: qty }))
+                      }
                       specEnabled={specEnabled}
                       onSpecEnabledChange={setSpecEnabled}
                       specChoices={specChoices}
@@ -1734,7 +1943,7 @@ export function SubscribePage({
               <VpsCostSummary
                 tier={tier}
                 specChoices={specChoices}
-                specEnabled={specEnabled}
+                specEnabled={addOnsActive}
                 snapshotEnabled={snapshotEnabled}
                 snapshotTier={snapshotTier}
                 total={vpsTotalKHR}
