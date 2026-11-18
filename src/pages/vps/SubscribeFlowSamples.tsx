@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { ClickableSurface } from "../../components/atoms";
 import { SERVICE_PRICING } from "../../data/pricing";
 import {
   customPlan,
@@ -41,7 +42,7 @@ import { buyVpsIpAddress, EXTRA_IP_PRICE_KHR, VPS_IP_ADDRESSES } from "./VpsIpAd
 /* ------------------------------------------------------------------ *
  * Subscribe to VPS — flow samples
  *
- * Four ways to lay out the same six-step configuration, side by side
+ * Six ways to lay out the same six-step configuration, side by side
  * so they can be compared rather than argued about. Every tab renders
  * the SAME step components, summaries and running total as the live
  * Subscribe page — only the shell around them changes. That's
@@ -302,7 +303,46 @@ function useVpsDraft() {
     </>
   );
 
-  return { body, summary, rail, breakdown, specLine, dialogs, total, canCheckout };
+  /* Set several steps at once — what a "pick what it's for" layout
+     needs, since one choice there stands in for four of the six
+     steps. Everything it touches stays editable afterwards. */
+  function applyPreset(preset: {
+    tierId: string;
+    osFamily: string;
+    osVersion: string;
+    snapshot: boolean;
+  }) {
+    setPlanMode("preset");
+    setTierId(preset.tierId);
+    setOsFamily(preset.osFamily);
+    setOsVersion(preset.osVersion);
+    setSnapshotEnabled(preset.snapshot);
+  }
+
+  const preview = {
+    hostname: hostname.trim(),
+    os: `${osFamily} ${osVersion}`,
+    osFamily,
+    province,
+    planName: tier.name,
+    ipCount: (useFreeIp ? 1 : 0) + extraIps,
+    snapshot: snapshotEnabled ? snapshotTier.name : null,
+    sshCount: selectedSshKeyIds.length,
+  };
+
+  return {
+    body,
+    summary,
+    rail,
+    breakdown,
+    specLine,
+    dialogs,
+    total,
+    canCheckout,
+    applyPreset,
+    preview,
+    tierId,
+  };
 }
 
 type Draft = ReturnType<typeof useVpsDraft>;
@@ -382,6 +422,95 @@ function SummaryRail({ draft }: { draft: Draft }) {
     <div className="min-w-0 space-y-4 lg:sticky lg:top-0">
       {draft.rail}
       <CheckoutButton draft={draft} className="w-full" />
+    </div>
+  );
+}
+
+/* The running total as one charge per line — compact enough to live
+   in a strip at the bottom of a layout that has no summary column. */
+function BreakdownPanel({ draft, className = "" }: { draft: Draft; className?: string }) {
+  return (
+    <div
+      className={
+        "overflow-hidden border-zinc-200 bg-white shadow-lg shadow-zinc-900/5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-200 dark:border-zinc-800 dark:bg-zinc-950 " +
+        className
+      }
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-zinc-100 px-5 py-2.5 dark:border-zinc-800">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+          What you&apos;re paying for
+        </p>
+        <p className="truncate text-[11.5px] text-zinc-500 dark:text-zinc-400">{draft.specLine}</p>
+      </div>
+      <ul className="divide-y divide-zinc-50 px-5 dark:divide-zinc-900">
+        {draft.breakdown.map((row, idx) => {
+          const RowIcon = stepIcon(row.step);
+          return (
+            <li key={`${row.label}-${idx}`} className="flex items-center gap-3 py-2.5">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                <RowIcon className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-medium text-zinc-900 dark:text-zinc-100">
+                  {row.label}
+                </span>
+                <span className="block truncate text-[11.5px] text-zinc-500 dark:text-zinc-400">
+                  {row.detail}
+                </span>
+              </span>
+              <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                {row.price.toLocaleString()} KHR
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="px-5 pb-3 text-[11.5px] text-zinc-400 dark:text-zinc-500">
+        Billed monthly. Cancel or resize any time.
+      </p>
+    </div>
+  );
+}
+
+/* The expandable total + actions bar, pinned to the bottom. Shared by
+   the two layouts that trade the summary column for page width. */
+function StickyTotalBar({ draft, children }: { draft: Draft; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="sticky bottom-0 mt-4">
+      {open && <BreakdownPanel draft={draft} className="max-h-[55vh] overflow-y-auto rounded-t-2xl border border-b-0" />}
+      <div
+        className={
+          "flex flex-wrap items-center justify-between gap-3 border border-zinc-200 bg-white px-5 py-3.5 shadow-lg shadow-zinc-900/5 dark:border-zinc-800 dark:bg-zinc-950 " +
+          (open ? "rounded-b-2xl" : "rounded-2xl")
+        }
+      >
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="-m-1 flex items-center gap-2 rounded-lg p-1 text-left motion-safe:transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900"
+        >
+          <span>
+            <span className="block text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+              Running total
+            </span>
+            <span className="block text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-50">
+              {draft.total.toLocaleString()} KHR
+              <span className="text-[13px] font-medium text-zinc-500">/mo</span>
+            </span>
+          </span>
+          <span className="flex items-center gap-1 rounded-full bg-[#EFF6FF] px-2.5 py-1 text-[11.5px] font-semibold text-[#1C75BC] dark:bg-zinc-800 dark:text-[#6FA8D8]">
+            {open
+              ? "Hide"
+              : `${draft.breakdown.length} ${draft.breakdown.length === 1 ? "item" : "items"}`}
+            <ChevronDown
+              className={"h-3.5 w-3.5 motion-safe:transition-transform " + (open ? "rotate-180" : "")}
+            />
+          </span>
+        </button>
+        <div className="flex items-center gap-2">{children}</div>
+      </div>
     </div>
   );
 }
@@ -479,6 +608,152 @@ function SampleAccordion({ draft }: { draft: Draft }) {
   );
 }
 
+/* C — Stacked sections (Accordion + the old Single page, merged) ---- *
+ * They were the same idea twice: a vertical stack of the six steps.
+ * One kept everything open with a jump list, the other collapsed what
+ * you weren't using. Merged, you get both — sections start open, each
+ * one folds away, and the rail tracks where you are either way.
+ * ------------------------------------------------------------------ */
+
+function SampleStacked({ draft }: { draft: Draft }) {
+  const [closed, setClosed] = useState<Step[]>([]);
+  const [active, setActive] = useState<string>(VPS_WIZARD_STEPS[0].step);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const allClosed = closed.length === VPS_WIZARD_STEPS.length;
+
+  // The app scrolls inside <main>, not the window, so the spy listens
+  // there and picks the last heading that has passed the top.
+  useEffect(() => {
+    const scroller = scrollRef.current?.closest("main");
+    if (!scroller) return;
+    function onScroll() {
+      const top = scroller!.getBoundingClientRect().top + 140;
+      let current = VPS_WIZARD_STEPS[0].step;
+      for (const s of VPS_WIZARD_STEPS) {
+        const el = document.getElementById(`sample-c-${s.step}`);
+        if (el && el.getBoundingClientRect().top <= top) current = s.step;
+      }
+      setActive(current);
+    }
+    onScroll();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => scroller.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <div
+      ref={scrollRef}
+      className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[168px_minmax(0,1fr)_320px]"
+    >
+      <nav className="hidden lg:sticky lg:top-0 lg:block">
+        <div className="flex items-center justify-between gap-1 px-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Steps</p>
+          <button
+            type="button"
+            onClick={() => setClosed(allClosed ? [] : VPS_WIZARD_STEPS.map((s) => s.step))}
+            className="text-[11px] font-medium text-[#1C75BC] hover:underline dark:text-[#6FA8D8]"
+          >
+            {allClosed ? "Expand" : "Collapse"}
+          </button>
+        </div>
+        <ul className="mt-2">
+          {VPS_WIZARD_STEPS.map((s, i) => {
+            const on = active === s.step;
+            return (
+              <li key={s.step}>
+                <a
+                  href={`#sample-c-${s.step}`}
+                  title={draft.summary(s.step) ?? s.label}
+                  onClick={() => setClosed((prev) => prev.filter((x) => x !== s.step))}
+                  className={
+                    "flex items-center gap-2 rounded-md border-l-2 py-1.5 pl-2 pr-1 text-[12.5px] motion-safe:transition-colors " +
+                    (on
+                      ? "border-[#1C75BC] bg-[#EFF6FF] font-semibold text-[#1C75BC] dark:bg-zinc-800 dark:text-[#6FA8D8]"
+                      : "border-transparent text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900")
+                  }
+                >
+                  <span
+                    className={
+                      "w-3.5 shrink-0 text-center text-[11px] font-semibold " +
+                      (on ? "text-[#1C75BC] dark:text-[#6FA8D8]" : "text-zinc-400")
+                    }
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 truncate">{s.label}</span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      <div className="min-w-0 space-y-3">
+        {VPS_WIZARD_STEPS.map((s, i) => {
+          const open = !closed.includes(s.step);
+          const Icon = stepIcon(s.step);
+          return (
+            <div
+              key={s.step}
+              id={`sample-c-${s.step}`}
+              className={
+                "scroll-mt-4 overflow-hidden rounded-2xl border motion-safe:transition-colors " +
+                (active === s.step && open
+                  ? "border-[#1C75BC]/40 dark:border-[#6FA8D8]/30"
+                  : "border-zinc-200 dark:border-zinc-800")
+              }
+            >
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={() =>
+                  setClosed((prev) =>
+                    prev.includes(s.step) ? prev.filter((x) => x !== s.step) : [...prev, s.step]
+                  )
+                }
+                className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left motion-safe:transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900"
+              >
+                <StepDot index={i} state={open ? "active" : "idle"} />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <Icon
+                      className={
+                        "h-3.5 w-3.5 shrink-0 " +
+                        (open ? "text-[#1C75BC] dark:text-[#6FA8D8]" : "text-zinc-400")
+                      }
+                    />
+                    <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                      {s.label}
+                    </span>
+                    <StepBadge step={s.step} canCheckout={draft.canCheckout} />
+                  </span>
+                  <span className="mt-0.5 block truncate text-[12px] text-zinc-500 dark:text-zinc-400">
+                    {draft.summary(s.step) ?? STEP_META[s.step]?.hint}
+                  </span>
+                </span>
+                <ChevronDown
+                  className={
+                    "h-4 w-4 shrink-0 text-zinc-400 motion-safe:transition-transform " +
+                    (open ? "rotate-180 text-[#1C75BC] dark:text-[#6FA8D8]" : "")
+                  }
+                />
+              </button>
+              {open && (
+                <div className="border-t border-zinc-100 px-4 pb-4 pt-4 dark:border-zinc-800">
+                  {draft.body(s.step)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <SummaryRail draft={draft} />
+      {draft.dialogs}
+    </div>
+  );
+}
+
 /* B — One step at a time -------------------------------------------- */
 
 function SampleStepper({ draft }: { draft: Draft }) {
@@ -488,7 +763,6 @@ function SampleStepper({ draft }: { draft: Draft }) {
   const Icon = stepIcon(current.step);
   const prev = VPS_WIZARD_STEPS[i - 1];
   const next = VPS_WIZARD_STEPS[i + 1];
-  const [totalOpen, setTotalOpen] = useState(false);
 
   return (
     <div className="mx-auto max-w-[840px]">
@@ -595,212 +869,30 @@ function SampleStepper({ draft }: { draft: Draft }) {
       {/* The total follows you down the page instead of living in a
           column this layout doesn't have — and opens into the full
           breakdown, so "why is it that much?" is answerable without
-          leaving the step you're on. */}
-      <div className="sticky bottom-0 mt-4">
-        {/* One charge per line, each tagged with the step it came
-            from — the two full summary cards were more than this strip
-            can carry, and most of what they showed is already on the
-            screen behind it. */}
-        {totalOpen && (
-          <div className="overflow-hidden rounded-t-2xl border border-b-0 border-zinc-200 bg-white shadow-lg shadow-zinc-900/5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-200 dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="flex items-center justify-between gap-3 border-b border-zinc-100 px-5 py-2.5 dark:border-zinc-800">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                What you&apos;re paying for
-              </p>
-              <p className="truncate text-[11.5px] text-zinc-500 dark:text-zinc-400">
-                {draft.specLine}
-              </p>
-            </div>
-            <ul className="divide-y divide-zinc-50 px-5 dark:divide-zinc-900">
-              {draft.breakdown.map((row, idx) => {
-                const RowIcon = stepIcon(row.step);
-                return (
-                  <li key={`${row.label}-${idx}`} className="flex items-center gap-3 py-2.5">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                      <RowIcon className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[13px] font-medium text-zinc-900 dark:text-zinc-100">
-                        {row.label}
-                      </span>
-                      <span className="block truncate text-[11.5px] text-zinc-500 dark:text-zinc-400">
-                        {row.detail}
-                      </span>
-                    </span>
-                    <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                      {row.price.toLocaleString()} KHR
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="px-5 pb-3 text-[11.5px] text-zinc-400 dark:text-zinc-500">
-              Billed monthly. Cancel or resize any time.
-            </p>
-          </div>
-        )}
-        <div
-          className={
-            "flex flex-wrap items-center justify-between gap-3 border border-zinc-200 bg-white px-5 py-3.5 shadow-lg shadow-zinc-900/5 dark:border-zinc-800 dark:bg-zinc-950 " +
-            (totalOpen ? "rounded-b-2xl" : "rounded-2xl")
-          }
+          leaving the step you're on. Buttons name where they go: on a
+          one-at-a-time flow the only question at the bottom of the
+          screen is "what's next?", and "Next" alone doesn't answer it. */}
+      <StickyTotalBar draft={draft}>
+        <Button
+          variant="outline"
+          disabled={i === 0}
+          onClick={() => setI((n) => n - 1)}
+          className="h-11 text-sm"
         >
-        <button
-          type="button"
-          onClick={() => setTotalOpen((o) => !o)}
-          aria-expanded={totalOpen}
-          className="-m-1 flex items-center gap-2 rounded-lg p-1 text-left motion-safe:transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900"
-        >
-          <span>
-            <span className="block text-[11px] font-medium uppercase tracking-wide text-zinc-400">
-              Running total
-            </span>
-            <span className="block text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-50">
-              {draft.total.toLocaleString()} KHR
-              <span className="text-[13px] font-medium text-zinc-500">/mo</span>
-            </span>
-          </span>
-          {/* Says how many charges are behind the number, so there's a
-              reason to open it rather than a bare "Details". */}
-          <span className="flex items-center gap-1 rounded-full bg-[#EFF6FF] px-2.5 py-1 text-[11.5px] font-semibold text-[#1C75BC] dark:bg-zinc-800 dark:text-[#6FA8D8]">
-            {totalOpen
-              ? "Hide"
-              : `${draft.breakdown.length} ${draft.breakdown.length === 1 ? "item" : "items"}`}
-            <ChevronDown
-              className={
-                "h-3.5 w-3.5 motion-safe:transition-transform " + (totalOpen ? "rotate-180" : "")
-              }
-            />
-          </span>
-        </button>
-        {/* Buttons name where they go. On a one-at-a-time flow the
-            only question at the bottom of the screen is "what's
-            next?", and "Next" alone doesn't answer it. */}
-        <div className="flex items-center gap-2">
+          {prev ? `Back · ${prev.label}` : "Back"}
+        </Button>
+        {last ? (
+          <CheckoutButton draft={draft} />
+        ) : (
           <Button
-            variant="outline"
-            disabled={i === 0}
-            onClick={() => setI((n) => n - 1)}
-            className="h-11 text-sm"
+            variant="brand"
+            onClick={() => setI((n) => n + 1)}
+            className="h-11 px-6 text-sm font-semibold"
           >
-            {prev ? `Back · ${prev.label}` : "Back"}
+            Next · {next.label}
           </Button>
-          {last ? (
-            <CheckoutButton draft={draft} />
-          ) : (
-            <Button
-              variant="brand"
-              onClick={() => setI((n) => n + 1)}
-              className="h-11 px-6 text-sm font-semibold"
-            >
-              Next · {next.label}
-            </Button>
-          )}
-        </div>
-        </div>
-      </div>
-      {draft.dialogs}
-    </div>
-  );
-}
-
-/* C — Single page with a live jump list ------------------------------ */
-
-function SampleSinglePage({ draft }: { draft: Draft }) {
-  const [active, setActive] = useState<string>(VPS_WIZARD_STEPS[0].step);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-
-  /* Scroll spy: the jump list is only worth having if it also tells
-     you where you are. The app scrolls inside <main>, not the window,
-     so this listens there and picks the last section whose heading has
-     passed the top of the viewport — plainer than an
-     IntersectionObserver and it can't disagree with what you see. */
-  useEffect(() => {
-    const scroller = scrollRef.current?.closest("main");
-    if (!scroller) return;
-    function onScroll() {
-      const top = scroller!.getBoundingClientRect().top + 140;
-      let current = VPS_WIZARD_STEPS[0].step;
-      for (const s of VPS_WIZARD_STEPS) {
-        const el = document.getElementById(`sample-c-${s.step}`);
-        if (el && el.getBoundingClientRect().top <= top) current = s.step;
-      }
-      setActive(current);
-    }
-    onScroll();
-    scroller.addEventListener("scroll", onScroll, { passive: true });
-    return () => scroller.removeEventListener("scroll", onScroll);
-  }, []);
-
-  return (
-    /* The jump list is a locator, not a second copy of the form: a
-       narrow fixed column of single-line rows. Giving it a quarter of
-       the page bought nothing — the values it used to repeat are
-       already visible in the sections themselves. */
-    <div
-      ref={scrollRef}
-      className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[168px_minmax(0,1fr)_320px]"
-    >
-      <nav className="hidden lg:sticky lg:top-0 lg:block">
-        <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-          On this page
-        </p>
-        <ul className="mt-2">
-          {VPS_WIZARD_STEPS.map((s, i) => {
-            const on = active === s.step;
-            return (
-              <li key={s.step}>
-                <a
-                  href={`#sample-c-${s.step}`}
-                  title={draft.summary(s.step) ?? s.label}
-                  className={
-                    "flex items-center gap-2 rounded-md border-l-2 py-1.5 pl-2 pr-1 text-[12.5px] motion-safe:transition-colors " +
-                    (on
-                      ? "border-[#1C75BC] bg-[#EFF6FF] font-semibold text-[#1C75BC] dark:bg-zinc-800 dark:text-[#6FA8D8]"
-                      : "border-transparent text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900")
-                  }
-                >
-                  <span
-                    className={
-                      "w-3.5 shrink-0 text-center text-[11px] font-semibold " +
-                      (on ? "text-[#1C75BC] dark:text-[#6FA8D8]" : "text-zinc-400")
-                    }
-                  >
-                    {i + 1}
-                  </span>
-                  <span className="min-w-0 truncate">{s.label}</span>
-                </a>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-
-      <div className="min-w-0 space-y-4">
-        {VPS_WIZARD_STEPS.map((s, i) => {
-          const Icon = stepIcon(s.step);
-          return (
-            <Card key={s.step} id={`sample-c-${s.step}`} className="scroll-mt-4 rounded-2xl">
-              <div className="flex items-start gap-3 border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                <StepDot index={i} state="idle" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Icon className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">{s.label}</h3>
-                    <StepBadge step={s.step} canCheckout={draft.canCheckout} />
-                  </div>
-                  <p className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">
-                    {STEP_META[s.step]?.hint}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4">{draft.body(s.step)}</div>
-            </Card>
-          );
-        })}
-      </div>
-
-      <SummaryRail draft={draft} />
+        )}
+      </StickyTotalBar>
       {draft.dialogs}
     </div>
   );
@@ -938,6 +1030,450 @@ function SampleTwoPane({ draft }: { draft: Draft }) {
 }
 
 
+/* E — Guided, with a review before checkout -------------------------- *
+ * The one-at-a-time flow's weakness is that you can't see the whole
+ * server at once. This answers it with a seventh screen: every choice
+ * listed, each with an Edit that drops you back on exactly that step.
+ * Nothing is bought until you've seen that page.
+ * ------------------------------------------------------------------ */
+
+const REVIEW_INDEX = VPS_WIZARD_STEPS.length;
+
+function SampleGuidedReview({ draft }: { draft: Draft }) {
+  const [i, setI] = useState(0);
+  const onReview = i === REVIEW_INDEX;
+  const current = VPS_WIZARD_STEPS[i];
+  const Icon = current ? stepIcon(current.step) : Check;
+
+  return (
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[232px_minmax(0,1fr)]">
+      {/* Vertical rail: the whole route, including the stop at the end. */}
+      <nav className="lg:sticky lg:top-0">
+        <ol className="relative">
+          {[...VPS_WIZARD_STEPS, { step: "review" as Step, label: "Review & confirm" }].map(
+            (s, idx) => {
+              const active = idx === i;
+              const behind = idx < i;
+              const RowIcon = idx === REVIEW_INDEX ? Check : stepIcon(s.step);
+              return (
+                <li key={s.label} className="relative">
+                  {idx < REVIEW_INDEX && (
+                    <span
+                      aria-hidden
+                      className={
+                        "absolute left-[22px] top-[30px] bottom-[-6px] w-0.5 rounded-full motion-safe:transition-colors " +
+                        (behind ? "bg-[#1C75BC]" : "bg-zinc-200 dark:bg-zinc-700")
+                      }
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setI(idx)}
+                    aria-current={active ? "step" : undefined}
+                    className={
+                      "relative flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left motion-safe:transition-colors " +
+                      (active
+                        ? "bg-[#EFF6FF] dark:bg-zinc-800"
+                        : "hover:bg-zinc-50 dark:hover:bg-zinc-900")
+                    }
+                  >
+                    <StepDot index={idx} state={active ? "active" : behind ? "done" : "idle"} size="sm" />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        <RowIcon
+                          className={
+                            "h-3 w-3 shrink-0 " +
+                            (active ? "text-[#1C75BC] dark:text-[#6FA8D8]" : "text-zinc-400")
+                          }
+                        />
+                        <span
+                          className={
+                            "truncate text-[13px] font-semibold " +
+                            (active
+                              ? "text-[#1C75BC] dark:text-[#6FA8D8]"
+                              : "text-zinc-900 dark:text-zinc-100")
+                          }
+                        >
+                          {s.label}
+                        </span>
+                      </span>
+                      {idx < REVIEW_INDEX && (
+                        <span className="mt-0.5 flex items-center gap-1.5">
+                          <span className="min-w-0 truncate text-[11.5px] text-zinc-500 dark:text-zinc-400">
+                            {draft.summary(s.step) ?? STEP_META[s.step]?.hint}
+                          </span>
+                          <StepBadge step={s.step} canCheckout={draft.canCheckout} />
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              );
+            }
+          )}
+        </ol>
+      </nav>
+
+      <div className="min-w-0">
+        <Card className="rounded-2xl">
+          <div className="flex items-start gap-3 border-b border-zinc-100 pb-4 dark:border-zinc-800">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] dark:bg-zinc-800">
+              <Icon className="h-5 w-5 text-[#1C75BC] dark:text-[#6FA8D8]" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+                  {onReview ? "Review & confirm" : current.label}
+                </h3>
+                {!onReview && <StepBadge step={current.step} canCheckout={draft.canCheckout} />}
+              </div>
+              <p className="mt-0.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
+                {onReview
+                  ? "Everything you've chosen, before anything is charged."
+                  : `Step ${i + 1} of ${VPS_WIZARD_STEPS.length} · ${STEP_META[current.step]?.hint}`}
+              </p>
+            </div>
+          </div>
+
+          {onReview ? (
+            <div className="mt-4 space-y-4">
+              <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+                {VPS_WIZARD_STEPS.map((s, idx) => {
+                  const RowIcon = stepIcon(s.step);
+                  const missing = s.step === REQUIRED_STEP && !draft.canCheckout;
+                  return (
+                    <li key={s.step} className="flex items-center gap-3.5 px-4 py-3">
+                      <span
+                        className={
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl " +
+                          (missing ? "bg-red-50 dark:bg-red-500/10" : "bg-zinc-100 dark:bg-zinc-800")
+                        }
+                      >
+                        <RowIcon
+                          className={
+                            "h-4 w-4 " +
+                            (missing ? "text-red-500" : "text-zinc-500 dark:text-zinc-400")
+                          }
+                        />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                          {s.label}
+                        </p>
+                        <p
+                          className={
+                            "mt-0.5 truncate text-[13px] font-medium " +
+                            (missing ? "text-red-500" : "text-zinc-900 dark:text-zinc-100")
+                          }
+                        >
+                          {missing ? "Not set — name your server" : draft.summary(s.step) ?? "Not set"}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => setI(idx)}
+                        className="h-8 shrink-0 px-3 text-[12px]"
+                      >
+                        Edit
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <BreakdownPanel draft={draft} className="rounded-xl border" />
+            </div>
+          ) : (
+            <div className="mt-4">{draft.body(current.step)}</div>
+          )}
+        </Card>
+
+        <StickyTotalBar draft={draft}>
+          <Button
+            variant="outline"
+            disabled={i === 0}
+            onClick={() => setI((n) => n - 1)}
+            className="h-11 text-sm"
+          >
+            Back
+          </Button>
+          {onReview ? (
+            <CheckoutButton draft={draft} />
+          ) : (
+            <Button
+              variant="brand"
+              onClick={() => setI((n) => n + 1)}
+              className="h-11 px-6 text-sm font-semibold"
+            >
+              {i === REVIEW_INDEX - 1 ? "Review" : `Next · ${VPS_WIZARD_STEPS[i + 1].label}`}
+            </Button>
+          )}
+        </StickyTotalBar>
+      </div>
+      {draft.dialogs}
+    </div>
+  );
+}
+
+/* G — Recipes -------------------------------------------------------- *
+ * The other five all answer "how do I show six questions?". This one
+ * asks whether most people should have to answer them at all. You
+ * pick what the server is FOR — a site, an API, a database, a dev box
+ * — and that one choice sets the plan, the OS and snapshot
+ * protection. The six steps are still there underneath, folded away,
+ * showing what the recipe chose so it never feels like a black box.
+ *
+ * The live preview on the right is the point of the layout: you watch
+ * the machine you're buying take shape instead of reading a bill.
+ * ------------------------------------------------------------------ */
+
+const RECIPES: {
+  id: string;
+  label: string;
+  what: string;
+  icon: ComponentType<{ className?: string }>;
+  tierId: string;
+  osFamily: string;
+  osVersion: string;
+  snapshot: boolean;
+}[] = [
+  {
+    id: "web",
+    label: "Website or shop",
+    what: "WordPress, a storefront, a landing page.",
+    icon: Globe,
+    tierId: "basic",
+    osFamily: "Ubuntu",
+    osVersion: "24.04 LTS",
+    snapshot: false,
+  },
+  {
+    id: "api",
+    label: "App backend",
+    what: "An API, a bot, a job runner.",
+    icon: Server,
+    tierId: "standard",
+    osFamily: "Ubuntu",
+    osVersion: "24.04 LTS",
+    snapshot: true,
+  },
+  {
+    id: "db",
+    label: "Database host",
+    what: "Postgres, MySQL, Redis — with backups on.",
+    icon: Cpu,
+    tierId: "premium",
+    osFamily: "Debian",
+    osVersion: "12",
+    snapshot: true,
+  },
+  {
+    id: "dev",
+    label: "Dev & testing",
+    what: "A scratch box you can rebuild any time.",
+    icon: KeyRound,
+    tierId: "nano",
+    osFamily: "Fedora",
+    osVersion: "40",
+    snapshot: false,
+  },
+];
+
+function SampleRecipes({ draft }: { draft: Draft }) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const [open, setOpen] = useState<Step[]>([]);
+  const tiers = SERVICE_PRICING.vps;
+
+  return (
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="min-w-0">
+        <div className="rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
+          <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+            What&apos;s this server for?
+          </h3>
+          <p className="mt-0.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
+            One pick sets the size, the OS and backups. Change any of it below.
+          </p>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {RECIPES.map((r) => {
+              const on = picked === r.id;
+              const price = tiers.find((t) => t.id === r.tierId)?.priceKHR ?? 0;
+              return (
+                <ClickableSurface
+                  key={r.id}
+                  onClick={() => {
+                    setPicked(r.id);
+                    draft.applyPreset(r);
+                  }}
+                  className={
+                    "rounded-xl border p-4 text-left motion-safe:transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C75BC]/40 " +
+                    (on
+                      ? "border-[#1C75BC] bg-[#EFF6FF] shadow-sm dark:bg-zinc-900"
+                      : "border-zinc-200 hover:border-zinc-300 hover:shadow-sm dark:border-zinc-800")
+                  }
+                >
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl " +
+                        (on ? "bg-[#1C75BC]" : "bg-zinc-100 dark:bg-zinc-800")
+                      }
+                    >
+                      <r.icon
+                        className={
+                          "h-5 w-5 " + (on ? "text-white" : "text-zinc-500 dark:text-zinc-400")
+                        }
+                      />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-[13px] font-bold text-zinc-900 dark:text-zinc-50">
+                          {r.label}
+                        </p>
+                        {on && <Check className="h-4 w-4 shrink-0 text-[#1C75BC]" strokeWidth={3} />}
+                      </div>
+                      <p className="mt-0.5 text-[12px] leading-snug text-zinc-500 dark:text-zinc-400">
+                        {r.what}
+                      </p>
+                      {/* What the recipe actually does, in the open —
+                          a preset you can't inspect is a guess. */}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {[
+                          tiers.find((t) => t.id === r.tierId)?.name ?? r.tierId,
+                          `${r.osFamily} ${r.osVersion}`,
+                          r.snapshot ? "Snapshots on" : "No snapshots",
+                        ].map((chip) => (
+                          <span
+                            key={chip}
+                            className="rounded-md bg-white px-1.5 py-0.5 text-[10.5px] font-medium text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700"
+                          >
+                            {chip}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[12px] font-semibold text-[#F26F21]">
+                        from {price.toLocaleString()} KHR/mo
+                      </p>
+                    </div>
+                  </div>
+                </ClickableSurface>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Required first, then the rest folded away: after a recipe
+            the only thing actually left to do is name the server. */}
+        <div className="mt-4 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+          <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">Name your server</h3>
+              <StepBadge step={REQUIRED_STEP} canCheckout={draft.canCheckout} />
+            </div>
+            <div className="mt-3">{draft.body("os")}</div>
+          </div>
+
+          <div className="px-5 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+              Everything else {picked ? "— set by the recipe" : "— using defaults"}
+            </p>
+            <ul className="mt-1 divide-y divide-zinc-100 dark:divide-zinc-800">
+              {VPS_WIZARD_STEPS.filter((s) => s.step !== "os").map((s, i) => {
+                const expanded = open.includes(s.step);
+                const Icon = stepIcon(s.step);
+                return (
+                  <li key={s.step}>
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      onClick={() =>
+                        setOpen((prev) =>
+                          prev.includes(s.step)
+                            ? prev.filter((x) => x !== s.step)
+                            : [...prev, s.step]
+                        )
+                      }
+                      className="flex w-full items-center gap-3 py-3 text-left"
+                    >
+                      <Icon className="h-4 w-4 shrink-0 text-zinc-400" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[12.5px] font-semibold text-zinc-900 dark:text-zinc-100">
+                          {s.label}
+                        </span>
+                        <span className="block truncate text-[12px] text-zinc-500 dark:text-zinc-400">
+                          {draft.summary(s.step) ?? STEP_META[s.step]?.hint}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-[12px] font-medium text-[#1C75BC] dark:text-[#6FA8D8]">
+                        {expanded ? "Done" : "Change"}
+                      </span>
+                      <ChevronDown
+                        className={
+                          "h-4 w-4 shrink-0 text-zinc-400 motion-safe:transition-transform " +
+                          (expanded ? "rotate-180" : "")
+                        }
+                      />
+                      <span className="sr-only">{i + 1}</span>
+                    </button>
+                    {expanded && <div className="pb-4">{draft.body(s.step)}</div>}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Live preview: the server, not the invoice. */}
+      <div className="min-w-0 space-y-4 lg:sticky lg:top-0">
+        <Card className="overflow-hidden rounded-2xl p-0">
+          <div className="bg-gradient-to-br from-[#1C75BC] to-[#0d3f66] px-5 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-white/60">
+              Your server
+            </p>
+            <p className="mt-1 truncate font-mono text-[15px] font-semibold text-white">
+              {draft.preview.hostname || "name-your-server"}
+            </p>
+            <p className="mt-0.5 text-[12px] text-white/70">
+              {draft.preview.planName} · {draft.preview.os}
+            </p>
+          </div>
+          <dl className="divide-y divide-zinc-100 px-5 dark:divide-zinc-800">
+            {[
+              ["Resources", draft.specLine],
+              ["Location", draft.preview.province],
+              [
+                "IP address",
+                `${draft.preview.ipCount} ${draft.preview.ipCount === 1 ? "address" : "addresses"}`,
+              ],
+              [
+                "SSH keys",
+                draft.preview.sshCount === 0 ? "None yet" : `${draft.preview.sshCount} authorized`,
+              ],
+              ["Snapshots", draft.preview.snapshot ?? "Off"],
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-[12px] text-zinc-500 dark:text-zinc-400">{label}</dt>
+                <dd className="min-w-0 truncate text-[12.5px] font-medium text-zinc-900 dark:text-zinc-100">
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <div className="flex items-center justify-between gap-3 border-t border-zinc-100 bg-zinc-50 px-5 py-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+            <span className="text-[12px] text-zinc-500 dark:text-zinc-400">Monthly</span>
+            <span className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
+              {draft.total.toLocaleString()} KHR
+            </span>
+          </div>
+        </Card>
+        <CheckoutButton draft={draft} className="w-full" />
+      </div>
+      {draft.dialogs}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 
 const SAMPLES: {
@@ -954,8 +1490,8 @@ const SAMPLES: {
     title: "Accordion",
     best: "Live today",
     blurb:
-      "Rows open in place, several at once, and the bottom-most open row hands off to the next. Scales to any number of steps and keeps the total in view.",
-    render: (d) => <SampleAccordion draft={d} />,
+      "The flow as it ships right now. Rows open in place, several at once, and the bottom-most open row hands off to the next. Here as the baseline everything else is measured against.",
+    render: (d) => <SampleAccordion draft={d} />
   },
   {
     id: "stepper",
@@ -964,16 +1500,16 @@ const SAMPLES: {
     best: "Best for first-timers",
     blurb:
       "A single question per screen with a progress rail above and the total pinned below. Least to read at once; worst for going back to check something.",
-    render: (d) => <SampleStepper draft={d} />,
+    render: (d) => <SampleStepper draft={d} />
   },
   {
-    id: "single",
-    tab: "C · Single page",
-    title: "Single page",
+    id: "stacked",
+    tab: "C · Stacked",
+    title: "Stacked sections",
     best: "Best for scanning",
     blurb:
-      "Every section open with a jump list that follows you down the page. Nothing is hidden, so it's the fastest to fill in out of order — at the cost of a long page on first load.",
-    render: (d) => <SampleSinglePage draft={d} />,
+      "The accordion and the old Single page merged: sections start open with a jump list that follows you down the page, and any section folds away when you're done with it.",
+    render: (d) => <SampleStacked draft={d} />
   },
   {
     id: "twopane",
@@ -982,8 +1518,27 @@ const SAMPLES: {
     best: "Most compact",
     blurb:
       "Settings-style: step list on the left with each one's current value, content on the right. Familiar and dense, but the panel height jumps between steps.",
-    render: (d) => <SampleTwoPane draft={d} />,
+    render: (d) => <SampleTwoPane draft={d} />
   },
+  {
+    id: "guided",
+    tab: "E · Guided + review",
+    title: "Guided, with a review",
+    best: "Safest checkout",
+    blurb:
+      "One step at a time down a vertical rail, then a seventh screen that lists every choice with an Edit beside it. Fixes the one-at-a-time weakness — you see the whole server before anything is charged.",
+    render: (d) => <SampleGuidedReview draft={d} />
+  },
+  {
+    id: "recipes",
+    tab: "G · Recipes",
+    title: "Recipes — pick what it's for",
+    best: "Fewest decisions",
+    blurb:
+      "The others all answer \"how do I show six questions?\". This asks whether most people should answer them at all: pick a purpose — site, API, database, dev box — and it sets the plan, OS and backups. The six steps stay underneath, folded, showing what the recipe chose. A live preview of the server replaces the invoice.",
+    render: (d) => <SampleRecipes draft={d} />,
+  },
+
 ];
 
 function SamplePanel({ render }: { render: (draft: Draft) => ReactNode }) {
@@ -1006,7 +1561,7 @@ export function SubscribeFlowSamplesPage() {
             Subscribe to VPS — flow samples
           </h1>
           <p className="mt-2 max-w-[760px] text-sm text-zinc-500 dark:text-zinc-400">
-            Four shells around the same six steps. Every tab renders the real step components, the
+            Six shells around the same six steps. Every tab renders the real step components, the
             same summaries and the same running total as the live Subscribe page, so what differs
             between them is layout and nothing else. Each tab keeps its own draft.
           </p>
@@ -1015,7 +1570,7 @@ export function SubscribeFlowSamplesPage() {
           className="shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold"
           style={{ borderColor: `${BRAND}33`, color: BRAND }}
         >
-          4 options
+          6 options
         </span>
       </div>
 
