@@ -51,14 +51,12 @@ import {
 // Local datacenter presence only — Phnom Penh is the one Province with
 // a live region today, the rest list for roadmap visibility but can't
 // be selected yet.
-/* Every datacenter is in Phnom Penh, so a server's location is which
-   sangkat it sits in rather than which province. Only the three that
-   actually have racks are listed — a longer roadmap list would read as
-   a menu of places you can't pick. */
+/* Every datacenter is in Phnom Penh, so there's one location to pick.
+   It stays a list rather than a fixed label because a second city is
+   the kind of thing that gets added, and nothing else has to change
+   when it does. */
 export const VPS_PROVINCES: { name: string; available: boolean }[] = [
-  { name: "Sangkat Tonle Bassac", available: true },
-  { name: "Sangkat Boeung Keng Kang", available: true },
-  { name: "Sangkat Chroy Changvar", available: false },
+  { name: "Phnom Penh", available: true },
 ];
 
 const VPS_TIERS = SERVICE_PRICING.vps;

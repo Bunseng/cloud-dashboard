@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { Check, KeyRound, MapPin, X } from "lucide-react";
+import { Check, Globe, KeyRound, MapPin, X } from "lucide-react";
 import { RiCentosFill, RiUbuntuFill } from "@remixicon/react";
 import { CircleCheck as CheckCircle2 } from "@/components/animate-ui/icons/circle-check";
 import { ChevronDown } from "@/components/animate-ui/icons/chevron-down";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,12 @@ import { formatScheduleDate } from "../context/PlanScheduleContext";
 import { addSavedCard, SAVED_CARDS, type SavedCard } from "../data/paymentMethods";
 import { getTierTheme, SERVICE_PRICING, type PricingServiceKey, type PricingPlan } from "../data/pricing";
 import { VPS_PROVINCES } from "./vps/CreateVpsPage";
+import {
+  buyVpsIpAddress,
+  EXTRA_IP_PRICE_KHR,
+  VPS_IP_ADDRESSES,
+  type VpsIpAddress,
+} from "./vps/VpsIpAddressesPage";
 import {
   addVpsSshKey,
   deleteVpsSshKey,
@@ -75,7 +82,7 @@ import {
  * card instead of applying the change immediately.
  * ------------------------------------------------------------------ */
 
-type Step =
+export type Step =
   | "plan"
   | "resource"
   | "location"
@@ -98,7 +105,7 @@ type ScheduleChoice = "now" | "later";
    filled in shouldn't be buried in the middle of four optional ones.
    Upgrades skip all of this; they're resizing a server that already
    exists. */
-const VPS_WIZARD_STEPS: { step: Step; label: string }[] = [
+export const VPS_WIZARD_STEPS: { step: Step; label: string }[] = [
   { step: "resource", label: "Plan" },
   { step: "os", label: "Server Details" },
   { step: "location", label: "Location" },
@@ -189,7 +196,7 @@ function specTotalFor(
   return enabled ? base + specAddedFor(tier, addon, chosen) : base;
 }
 
-function specExtraCost(
+export function specExtraCost(
   tier: PricingPlan,
   chosen: Record<string, number>,
   enabled: boolean
@@ -204,7 +211,7 @@ function specExtraCost(
 // What the server actually ends up with, per spec-row label — the
 // plan's own numbers until the add-on is switched on. Drives both the
 // right rail's plan card and what gets provisioned.
-function finalSpecs(
+export function finalSpecs(
   tier: PricingPlan,
   chosen: Record<string, number>,
   enabled: boolean
@@ -221,7 +228,7 @@ function finalSpecs(
    server — same tier list Create VPS and the instance page already use,
    so a plan bought here is the same thing shown there. Off by default;
    switching it on folds its price into the one checkout total. */
-const SNAPSHOT_TIERS = SERVICE_PRICING.vpsSnapshot;
+export const SNAPSHOT_TIERS = SERVICE_PRICING.vpsSnapshot;
 
 /* Two ways to size a server: take one of the ready-made plans off the
    rate card, or set each resource yourself. Custom isn't a different
@@ -241,7 +248,7 @@ const VPS_PLAN_MODES: { id: VpsPlanMode; label: string; description: string }[] 
   },
 ];
 
-type VpsPlanMode = "preset" | "custom";
+export type VpsPlanMode = "preset" | "custom";
 
 /* The custom builder's rows — same three resources, same per-unit
    rates, and the same control shape as the Service Specification
@@ -329,7 +336,7 @@ function customPlanPriceKHR(chosen: Record<string, number>): number {
    plan, so the rail card, totals, checkout and the provisioned
    instance all read it exactly the way they read Standard or Premium —
    nothing downstream needs to know the difference. */
-function customPlan(chosen: Record<string, number>): PricingPlan {
+export function customPlan(chosen: Record<string, number>): PricingPlan {
   const vcpu = customSpecQty(chosen, "vcpu");
   return {
     id: "custom",
@@ -360,6 +367,7 @@ function VpsWizardStepRow({
   index,
   label,
   required,
+  complete,
   expanded,
   summary,
   onToggle,
@@ -373,6 +381,8 @@ function VpsWizardStepRow({
   // other row already has a usable default, so opening it is a choice,
   // not a chore.
   required?: boolean;
+  /** For a required step: whether it's been filled in yet. */
+  complete?: boolean;
   expanded: boolean;
   summary?: string;
   onToggle: () => void;
@@ -396,9 +406,27 @@ function VpsWizardStepRow({
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             {label}
-            <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
-              {required ? "Required" : "Optional"}
-            </span>
+            {/* A required step says where it stands: red until it's
+                filled in, green once it is. Optional rows stay quiet —
+                colouring those would make the one thing that actually
+                blocks checkout harder to spot, not easier. */}
+            {required ? (
+              <span
+                className={
+                  "inline-flex items-center gap-1 text-[11px] font-semibold " +
+                  (complete
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-red-500 dark:text-red-400")
+                }
+              >
+                {complete && <Check className="h-3 w-3" strokeWidth={3} />}
+                {complete ? "Completed" : "Required"}
+              </span>
+            ) : (
+              <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
+                Optional
+              </span>
+            )}
           </p>
           {/* The picked-value line is what a collapsed row exists to
               show; expanded, the controls below say it better. */}
@@ -442,7 +470,7 @@ function VpsWizardStepRow({
 // One-line "here's what you picked" text for a collapsed, already-done
 // row — lets you scan the whole wizard's choices at a glance without
 // reopening every step.
-function vpsStepSummary(
+export function vpsStepSummary(
   step: Step,
   ctx: {
     tier: PricingPlan;
@@ -456,6 +484,8 @@ function vpsStepSummary(
     snapshotTierId: string;
     specChoices: Record<string, number>;
     specEnabled: boolean;
+    extraIps: number;
+    useFreeIp: boolean;
   }
 ): string | undefined {
   switch (step) {
@@ -480,8 +510,15 @@ function vpsStepSummary(
       const names = ctx.sshKeys.filter((k) => ctx.selectedSshKeyIds.includes(k.id)).map((k) => k.name);
       return names.length ? names.join(", ") : "No key added";
     }
-    case "network":
-      return "IPv4 · Public address";
+    case "network": {
+      const count = (ctx.useFreeIp ? 1 : 0) + ctx.extraIps;
+      if (count === 0) return "No IP address";
+      const paid = ctx.extraIps * EXTRA_IP_PRICE_KHR;
+      const label = count === 1 ? "1 IP address" : `${count} IP addresses`;
+      return paid > 0
+        ? `${label} · +${paid.toLocaleString()} KHR/mo`
+        : `${label} · free`;
+    }
     case "snapshot": {
       if (!ctx.snapshotEnabled) return "Off";
       const t = SNAPSHOT_TIERS.find((s) => s.id === ctx.snapshotTierId) ?? SNAPSHOT_TIERS[0];
@@ -492,6 +529,25 @@ function vpsStepSummary(
   }
 }
 
+/* Real distro artwork, when the file is there. Drop an image named
+   after the family into src/assets/os — ubuntu.svg, debian.png,
+   fedora.svg, almalinux.svg, centos.svg (case doesn't matter) — and it
+   renders in place of the icon or initial with no code change. The
+   folder being empty is fine: every family still has a fallback below,
+   so nothing breaks while the artwork is missing. */
+const OS_ARTWORK: Record<string, string> = Object.fromEntries(
+  Object.entries(
+    import.meta.glob("../assets/os/*.{svg,png,jpg,jpeg,webp}", {
+      eager: true,
+      query: "?url",
+      import: "default",
+    })
+  ).map(([path, url]) => [
+    path.split("/").pop()!.replace(/\.[^.]+$/, "").toLowerCase(),
+    url as string,
+  ])
+);
+
 // Brand icon where @remixicon/react has one; everything else falls back
 // to a plain colored initial so this doesn't depend on sourcing every
 // distro's actual logo artwork.
@@ -501,16 +557,17 @@ const OS_LOGO: Record<
 > = {
   Ubuntu: { icon: RiUbuntuFill, letter: "U", bg: "bg-orange-50 dark:bg-orange-500/10", text: "text-[#E95420]" },
   CentOS: { icon: RiCentosFill, letter: "C", bg: "bg-purple-50 dark:bg-purple-500/10", text: "text-[#932279]" },
-  Debian: { letter: "D", bg: "bg-red-50 dark:bg-red-500/10", text: "text-red-600 dark:text-red-400" },
-  Fedora: { letter: "F", bg: "bg-blue-50 dark:bg-blue-500/10", text: "text-blue-600 dark:text-blue-400" },
-  AlmaLinux: { letter: "A", bg: "bg-teal-50 dark:bg-teal-500/10", text: "text-teal-600 dark:text-teal-400" },
-  OracleLinux: { letter: "O", bg: "bg-rose-50 dark:bg-rose-500/10", text: "text-rose-700 dark:text-rose-400" },
+  // Brand colors, so the three without an icon still read as themselves:
+  // Debian crimson, Fedora blue, AlmaLinux blue.
+  Debian: { letter: "D", bg: "bg-rose-50 dark:bg-rose-500/10", text: "text-[#D70A53]" },
+  Fedora: { letter: "F", bg: "bg-sky-50 dark:bg-sky-500/10", text: "text-[#51A2DA]" },
+  AlmaLinux: { letter: "A", bg: "bg-blue-50 dark:bg-blue-500/10", text: "text-[#0F5B9D]" },
 };
 
 /* Read-only tier summary for the wizard's right rail — "same place"
    across every step, unlike PlanPicker which doubles as the Plan step's
    own editable card. Changing the plan means going back to Step 1. */
-function VpsPlanSummaryCard({
+export function VpsPlanSummaryCard({
   tier,
   specOverride,
 }: {
@@ -571,10 +628,11 @@ function VpsPlanSummaryCard({
    separate subscriptions but one checkout, so they're itemised and then
    summed rather than collapsed into a single opaque number — turning
    snapshots on should visibly change what you're about to pay. */
-function VpsCostSummary({
+export function VpsCostSummary({
   tier,
   specChoices,
   specEnabled,
+  extraIps = 0,
   snapshotEnabled,
   snapshotTier,
   total,
@@ -582,6 +640,8 @@ function VpsCostSummary({
   tier: PricingPlan;
   specChoices: Record<string, number>;
   specEnabled: boolean;
+  /** Addresses bought beyond the free one — absent on the upgrade flow. */
+  extraIps?: number;
   snapshotEnabled: boolean;
   snapshotTier: PricingPlan;
   total: number;
@@ -594,6 +654,13 @@ function VpsCostSummary({
     if (added > 0) {
       rows.push([a.specLabel, `+${added.toLocaleString()} ${a.unit}`, added * a.rateKHR]);
     }
+  }
+  if (extraIps > 0) {
+    rows.push([
+      "IP Address",
+      `+${extraIps} extra`,
+      extraIps * EXTRA_IP_PRICE_KHR,
+    ]);
   }
   if (snapshotEnabled) rows.push(["Snapshot", snapshotTier.name, snapshotTier.priceKHR]);
 
@@ -624,12 +691,16 @@ function VpsCostSummary({
   );
 }
 
+/** How many ready-made plans the wizard lists; bigger builds go
+    through Custom Plan rather than a longer menu. */
+export const VPS_PRESET_PLAN_COUNT = 5;
+
 /* Step 1 — CPU type + size. Picking a resource type filters which tiers
    show up below it; picking a tier is what actually sets the plan
    that's being subscribed to (mirrors PlanPicker's own tier-selection
    list, just as the wizard's first step instead of an expandable
    "Change Plan" section). */
-function VpsResourceStep({
+export function VpsResourceStep({
   tierId,
   onSelectTier,
   tier,
@@ -654,7 +725,10 @@ function VpsResourceStep({
   specChoices: Record<string, number>;
   onSpecChange: (key: string, added: number) => void;
 }) {
-  const tiers = SERVICE_PRICING.vps;
+  /* Five ready-made plans is the whole list anyone scans; the sizes
+     past them are better served by Custom Plan, which can reach them
+     and anything in between. */
+  const tiers = SERVICE_PRICING.vps.slice(0, VPS_PRESET_PLAN_COUNT);
 
   return (
     <>
@@ -816,7 +890,7 @@ function VpsCustomPlanBuilder({
 /* Step 2 — Location. Same list Create VPS already uses for an existing
    instance's own form, so where the datacenters are reads the same way
    everywhere in the app. */
-function VpsLocationStep({
+export function VpsLocationStep({
   province,
   onProvinceChange,
 }: {
@@ -826,7 +900,8 @@ function VpsLocationStep({
   return (
     <>
       <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
-        Pick the Phnom Penh datacenter this server will run in.
+        Where this server runs. Phnom Penh is the only location today — more cities as we add
+        datacenters.
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -863,7 +938,7 @@ function VpsLocationStep({
 /* Step 4 — SSH Key. Same account-level key list + "pop up" (browse
    existing / paste new / edit) that Create VPS already uses, so adding
    a key here and adding one there draw from the exact same store. */
-function VpsSshKeyStep({
+export function VpsSshKeyStep({
   sshKeys,
   selectedSshKeyIds,
   onSelect,
@@ -943,9 +1018,9 @@ const VPS_NETWORK_OPTIONS: {
 }[] = [
   {
     id: "ipv4",
-    label: "IPv4",
-    what: "A public address on the internet — how people reach your server.",
-    why: "Point a domain at it, open it in a browser, or SSH in from anywhere. The address is assigned once the server is provisioned.",
+    label: "IP Address",
+    what: "A public IPv4 address — how people reach your server.",
+    why: "Point a domain at it, open it in a browser, or SSH in from anywhere. One address is free with the server; anything beyond it is billed monthly and can be released any time under VPS → IP Address.",
     included: true,
   },
   {
@@ -956,46 +1031,195 @@ const VPS_NETWORK_OPTIONS: {
   },
 ];
 
-function VpsNetworkStep() {
+/* One row in the IP Address choice list — the free address, an
+   address already bought, or one sitting idle on the account. All
+   three are the same kind of decision ("does this server get this
+   address?"), so they're the same kind of row. */
+function IpChoiceRow({
+  id,
+  checked,
+  onCheckedChange,
+  title,
+  mono,
+  note,
+  badge,
+  price,
+}: {
+  id: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  title: string;
+  mono?: boolean;
+  note: string;
+  badge?: string;
+  price: string;
+}) {
+  return (
+    <li
+      className={
+        "flex items-start gap-3 rounded-lg border px-3 py-2.5 " +
+        (checked
+          ? "border-[#1C75BC]/40 bg-[#EFF6FF]/60 dark:border-[#6FA8D8]/30 dark:bg-zinc-900"
+          : "border-zinc-200 dark:border-zinc-800")
+      }
+    >
+      <Checkbox
+        id={id}
+        checked={checked}
+        onCheckedChange={(next) => onCheckedChange(next === true)}
+        className="mt-0.5 shrink-0"
+      />
+      <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer">
+        <span className="flex flex-wrap items-center gap-2">
+          <span
+            className={
+              "text-[13px] font-semibold text-zinc-900 dark:text-zinc-100 " +
+              (mono ? "font-mono" : "")
+            }
+          >
+            {title}
+          </span>
+          {badge && (
+            <span className="rounded-full bg-[#1C75BC] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+              {badge}
+            </span>
+          )}
+        </span>
+        <span className="mt-0.5 block text-[12px] leading-snug text-zinc-500 dark:text-zinc-400">
+          {note}
+        </span>
+      </label>
+      <span className="shrink-0 whitespace-nowrap text-[12px] font-medium text-zinc-600 dark:text-zinc-300">
+        {price}
+      </span>
+    </li>
+  );
+}
+
+export function VpsNetworkStep({
+  useFreeIp,
+  onUseFreeIpChange,
+  availableIps,
+  selectedIps,
+  onAttach,
+  onDetach,
+  onBuy,
+}: {
+  useFreeIp: boolean;
+  onUseFreeIpChange: (use: boolean) => void;
+  /** Idle extra addresses already on the account. */
+  availableIps: VpsIpAddress[];
+  selectedIps: VpsIpAddress[];
+  onAttach: (id: string) => void;
+  onDetach: (id: string) => void;
+  onBuy: () => void;
+}) {
+  const ipv4 = VPS_NETWORK_OPTIONS.find((o) => o.id === "ipv4")!;
+  const soon = VPS_NETWORK_OPTIONS.filter((o) => !o.included);
+  const nothingPicked = !useFreeIp && selectedIps.length === 0;
+
   return (
     <>
       <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
-        How this server can be reached. Every server gets a public IPv4 address; private networking
-        is on the way.
+        How this server can be reached. Pick the addresses it gets: the free one, any you already
+        own, or buy another. Private networking is on the way.
       </p>
 
-      <div className="mt-4 space-y-2">
-        {VPS_NETWORK_OPTIONS.map((o) => (
-          <div
-            key={o.id}
-            className={
-              "rounded-lg border px-3 py-3 " +
-              (o.included
-                ? "border-[#1C75BC]/40 bg-[#EFF6FF]/60 dark:border-[#6FA8D8]/30 dark:bg-zinc-900"
-                : "border-zinc-200 dark:border-zinc-800")
-            }
-          >
+      {/* Free / already bought / buy new are three ways of answering
+          one question, so they're one checklist rather than a locked
+          card with a separate shop underneath it. The addresses come
+          from the same store as VPS → IP Address, and "Buy" purchases
+          one straight away and ticks it. */}
+      <div className="mt-4 rounded-lg border border-zinc-200 px-3 py-3 dark:border-zinc-800">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">
+            {ipv4.label}
+          </span>
+          <span className="rounded-full bg-[#1C75BC] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+            1 Free
+          </span>
+        </div>
+        <p className="mt-1 text-[12.5px] leading-snug text-zinc-600 dark:text-zinc-300">
+          {ipv4.what}
+        </p>
+        <p className="mt-0.5 text-[12px] leading-snug text-zinc-500 dark:text-zinc-400">
+          {ipv4.why}
+        </p>
+
+        <ul className="mt-3 space-y-2">
+          <IpChoiceRow
+            id="ip-free"
+            checked={useFreeIp}
+            onCheckedChange={onUseFreeIpChange}
+            title="Free address"
+            // One per server, once — it isn't a discount you can apply
+            // to a second address, so the row says so rather than
+            // letting anyone assume more free ones are available.
+            note="One per server, this one time only — assigned from our pool when the server is provisioned. Every address after it is billed."
+            badge="Free"
+            price="0 KHR"
+          />
+
+          {selectedIps.map((ip) => (
+            <IpChoiceRow
+              key={ip.id}
+              id={`ip-${ip.id}`}
+              checked
+              onCheckedChange={() => onDetach(ip.id)}
+              title={ip.address}
+              mono
+              note="Bought — attached to this server."
+              price={`${EXTRA_IP_PRICE_KHR.toLocaleString()} KHR/mo`}
+            />
+          ))}
+
+          {/* Already paid for and sitting idle, so it's offered before
+              selling another one. */}
+          {availableIps.map((ip) => (
+            <IpChoiceRow
+              key={ip.id}
+              id={`ip-${ip.id}`}
+              checked={false}
+              onCheckedChange={() => onAttach(ip.id)}
+              title={ip.address}
+              mono
+              note="Already on your account, not attached to anything."
+              price={`${EXTRA_IP_PRICE_KHR.toLocaleString()} KHR/mo`}
+            />
+          ))}
+        </ul>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onBuy}
+          className="mt-3 h-9 w-full gap-1.5 text-sm"
+        >
+          <Globe className="h-4 w-4" />
+          Buy another address — {EXTRA_IP_PRICE_KHR.toLocaleString()} KHR/mo
+        </Button>
+
+        {nothingPicked && (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
+            With no address, this server won&apos;t be reachable from the internet. You can add one
+            later under VPS → IP Address.
+          </p>
+        )}
+      </div>
+
+      <div className="mt-2 space-y-2">
+        {soon.map((o) => (
+          <div key={o.id} className="rounded-lg border border-zinc-200 px-3 py-3 dark:border-zinc-800">
             <div className="flex items-start gap-3">
-              <Checkbox
-                id={`network-${o.id}`}
-                checked={Boolean(o.included)}
-                disabled
-                className="mt-0.5 shrink-0"
-              />
+              <Checkbox id={`network-${o.id}`} checked={false} disabled className="mt-0.5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">
                     {o.label}
                   </span>
-                  {o.included ? (
-                    <span className="rounded-full bg-[#1C75BC] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                      Included
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                      Coming soon
-                    </span>
-                  )}
+                  <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                    Coming soon
+                  </span>
                 </div>
                 <p className="mt-1 text-[12.5px] leading-snug text-zinc-600 dark:text-zinc-300">
                   {o.what}
@@ -1103,7 +1327,7 @@ function VpsSpecAddOn({
    plan: a switch to buy it at all, then which tier. Same Switch →
    tier → specs shape Create VPS uses, reading the same
    SERVICE_PRICING.vpsSnapshot list, so the two can't drift apart. */
-function VpsSnapshotStep({
+export function VpsSnapshotStep({
   enabled,
   onEnabledChange,
   tierId,
@@ -1178,7 +1402,7 @@ function VpsSnapshotStep({
    Create VPS would otherwise ask for after payment; collecting them
    here means Subscribe hands back everything needed to provision the
    server immediately, in one flow. */
-function VpsServerDetailsStep({
+export function VpsServerDetailsStep({
   hostname,
   onHostnameChange,
   osFamily,
@@ -1222,6 +1446,7 @@ function VpsServerDetailsStep({
                 text: "text-zinc-600 dark:text-zinc-300",
               };
               const Icon = meta.icon;
+              const artwork = OS_ARTWORK[f.family.toLowerCase()];
               const selected = f.family === osFamily;
               const versionForFamily = selected ? osVersion : f.versions[0];
 
@@ -1247,8 +1472,25 @@ function VpsServerDetailsStep({
                     {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
                   </span>
 
-                  <span className={"flex h-12 w-12 shrink-0 items-center justify-center rounded-full " + meta.bg}>
-                    {Icon ? (
+                  {/* The real logo wins when it exists. Logos differ in
+                      shape and padding, so a ringed circle gives the
+                      row one consistent silhouette instead of five. */}
+                  <span
+                    className={
+                      "flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full " +
+                      (artwork
+                        ? "border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-100"
+                        : meta.bg)
+                    }
+                  >
+                    {artwork ? (
+                      <img
+                        src={artwork}
+                        alt=""
+                        aria-hidden
+                        className="h-8 w-8 object-contain"
+                      />
+                    ) : Icon ? (
                       <Icon className={"h-6 w-6 " + meta.text} />
                     ) : (
                       <span className={"text-base font-bold " + meta.text}>{meta.letter}</span>
@@ -1663,6 +1905,9 @@ export function SubscribePage({
       // provisioned server shows what was actually paid for rather than
       // the plan's bundled defaults.
       specs?: { cpu: string; memory: string; storage: string };
+      // Extra addresses bought/attached in the Network step — assigned
+      // to the server once it has a name.
+      extraIpIds?: string[];
     }
   ) => void;
   onCancel: () => void;
@@ -1686,15 +1931,25 @@ export function SubscribePage({
       prev.includes(target) ? prev.filter((s) => s !== target) : [...prev, target]
     );
   }
+  /* With more than one row open at a time, only the bottom-most open
+     row carries "Next". A Next button on every open row reads as
+     several competing ways forward, and the one you're actually
+     working in is the last one you opened. */
+  const lastExpandedVpsStep = [...VPS_WIZARD_STEPS]
+    .reverse()
+    .find((s) => expandedVpsSteps.includes(s.step))?.step;
   // "Next" is a hand-off, not a gate: it collapses the row you just
   // finished and opens the following one, leaving every other row
   // exactly as you left it.
   function advanceVpsStep(current: Step, next: Step) {
     setExpandedVpsSteps((prev) => [...prev.filter((s) => s !== current && s !== next), next]);
   }
-  const [tierId, setTierId] = useState(
-    tiers.some((t) => t.id === initialTierId) ? initialTierId : tiers[0].id
-  );
+  const [tierId, setTierId] = useState(() => {
+    // A new VPS only lists the first few plans, so a link pointing at
+    // one past them would select a row that isn't on screen.
+    const selectable = isNewVps ? tiers.slice(0, VPS_PRESET_PLAN_COUNT) : tiers;
+    return selectable.some((t) => t.id === initialTierId) ? initialTierId : selectable[0].id;
+  });
   // Preset vs. a self-sized server. The chosen plan is kept either way,
   // so switching back to Plan returns to whatever tier was picked
   // rather than resetting it.
@@ -1706,6 +1961,29 @@ export function SubscribePage({
   const [osFamily, setOsFamily] = useState(VPS_OS_FAMILIES[0].family);
   const [osVersion, setOsVersion] = useState(VPS_OS_FAMILIES[0].versions[0]);
   const [province, setProvince] = useState(VPS_PROVINCES[0].name);
+  /* Extra addresses are account-level, exactly like SSH keys: this
+     mirrors the same store VPS → IP Address reads, so one bought here
+     shows up there too. Buying attaches it to this server right away —
+     nothing to confirm twice. */
+  const [ipAddresses, setIpAddresses] = useState(() => [...VPS_IP_ADDRESSES]);
+  const [selectedIpIds, setSelectedIpIds] = useState<string[]>([]);
+  // The free address is a choice too — most servers want it, so it
+  // starts on, but a server given its own bought address doesn't need
+  // one it didn't ask for.
+  const [useFreeIp, setUseFreeIp] = useState(true);
+  // Buying is a charge, so it asks first — the only step in this
+  // wizard that spends money before checkout does.
+  const [buyIpConfirmOpen, setBuyIpConfirmOpen] = useState(false);
+  const selectedIps = ipAddresses.filter((ip) => selectedIpIds.includes(ip.id));
+  const availableIps = ipAddresses.filter(
+    (ip) => ip.kind === "extra" && !ip.assignedTo && !selectedIpIds.includes(ip.id)
+  );
+  const extraIps = selectedIpIds.length;
+  function buyExtraIp() {
+    const bought = buyVpsIpAddress({ label: hostname.trim() || undefined });
+    setIpAddresses((prev) => [...prev, bought]);
+    setSelectedIpIds((prev) => [...prev, bought.id]);
+  }
   // SSH keys are account-level and reusable — same store Create VPS
   // reads/writes, so a key added in either place shows up in both.
   const [sshKeys, setSshKeys] = useState(() => [...VPS_SSH_KEYS]);
@@ -1791,8 +2069,11 @@ export function SubscribePage({
   // resource directly, so it never stacks on top of one.
   const addOnsActive = specEnabled && !(isNewVps && vpsPlanMode === "custom");
   const specExtraKHR = specExtraCost(tier, specChoices, addOnsActive);
+  // One address is free with the server; anything past that is bought
+  // here and billed monthly alongside it.
+  const extraIpKHR = extraIps * EXTRA_IP_PRICE_KHR;
   const vpsTotalKHR =
-    tier.priceKHR + specExtraKHR + (snapshotEnabled ? snapshotTier.priceKHR : 0);
+    tier.priceKHR + specExtraKHR + extraIpKHR + (snapshotEnabled ? snapshotTier.priceKHR : 0);
   const resolvedSpecs = finalSpecs(tier, specChoices, addOnsActive);
   const purchasedSpecs = {
     cpu: resolvedSpecs["vCPU"],
@@ -1857,6 +2138,7 @@ export function SubscribePage({
                   index={i}
                   label={s.label}
                   required={s.step === "os"}
+                  complete={s.step === "os" ? canCheckoutVps : undefined}
                   expanded={expandedVpsSteps.includes(s.step)}
                   summary={vpsStepSummary(s.step, {
                     tier,
@@ -1870,11 +2152,13 @@ export function SubscribePage({
                     snapshotTierId,
                     specChoices,
                     specEnabled: addOnsActive,
+                    extraIps,
+                    useFreeIp,
                   })}
                   onToggle={() => toggleVpsStep(s.step)}
                   nextLabel={VPS_WIZARD_STEPS[i + 1]?.label}
                   onNext={
-                    VPS_WIZARD_STEPS[i + 1]
+                    VPS_WIZARD_STEPS[i + 1] && s.step === lastExpandedVpsStep
                       ? () => advanceVpsStep(s.step, VPS_WIZARD_STEPS[i + 1].step)
                       : undefined
                   }
@@ -1920,7 +2204,19 @@ export function SubscribePage({
                       onOpenDialog={() => setSshDialogOpen(true)}
                     />
                   )}
-                  {s.step === "network" && <VpsNetworkStep />}
+                  {s.step === "network" && (
+                    <VpsNetworkStep
+                      useFreeIp={useFreeIp}
+                      onUseFreeIpChange={setUseFreeIp}
+                      availableIps={availableIps}
+                      selectedIps={selectedIps}
+                      onAttach={(id) => setSelectedIpIds((prev) => [...prev, id])}
+                      onDetach={(id) =>
+                        setSelectedIpIds((prev) => prev.filter((x) => x !== id))
+                      }
+                      onBuy={() => setBuyIpConfirmOpen(true)}
+                    />
+                  )}
                   {s.step === "snapshot" && (
                     <VpsSnapshotStep
                       enabled={snapshotEnabled}
@@ -1944,6 +2240,7 @@ export function SubscribePage({
                 tier={tier}
                 specChoices={specChoices}
                 specEnabled={addOnsActive}
+                extraIps={extraIps}
                 snapshotEnabled={snapshotEnabled}
                 snapshotTier={snapshotTier}
                 total={vpsTotalKHR}
@@ -2046,6 +2343,7 @@ export function SubscribePage({
                       snapshotEnabled,
                       snapshotTierId: snapshotEnabled ? snapshotTier.id : undefined,
                       specs: purchasedSpecs,
+                      extraIpIds: selectedIpIds,
                     }
                   : undefined
               )
@@ -2123,6 +2421,20 @@ export function SubscribePage({
           onCreateNew={createNewSshKey}
           onUpdateExisting={updateExistingSshKey}
           onDeleteExisting={deleteExistingSshKey}
+        />
+      )}
+
+      {isNewVps && (
+        <ConfirmDialog
+          open={buyIpConfirmOpen}
+          onOpenChange={setBuyIpConfirmOpen}
+          title="Buy an IP address?"
+          description={`One extra public IPv4 address at ${EXTRA_IP_PRICE_KHR.toLocaleString()} KHR / month. It's added to your account straight away and attached to this server — release it any time under VPS → IP Address to stop the charge.`}
+          confirmLabel={`Buy · ${EXTRA_IP_PRICE_KHR.toLocaleString()} KHR/mo`}
+          onConfirm={() => {
+            buyExtraIp();
+            setBuyIpConfirmOpen(false);
+          }}
         />
       )}
 

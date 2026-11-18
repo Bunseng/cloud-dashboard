@@ -94,6 +94,8 @@ export function Layout({
     breadcrumb = ["Home", "VPS", "SSH Keys"];
   } else if (page === "vps" && segs[1] === "ip-addresses") {
     breadcrumb = ["Home", "VPS", "IP Address"];
+  } else if (page === "vps" && segs[1] === "flow-samples") {
+    breadcrumb = ["Home", "VPS", "Flow samples"];
   } else if (page === "vps" && segs[2] === "monitoring") {
     breadcrumb = ["Home", "VPS", segs[1], "Monitoring"];
   } else if (page === "vps" && segs[1]) {

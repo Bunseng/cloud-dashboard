@@ -42,14 +42,16 @@ import { VPS_INSTANCES } from "./VpsInstanceDetailPage";
  * single server, the same way SSH Keys and Snapshots sit beside
  * Instances rather than inside one.
  *
- * An address here is only useful in relation to a server, so every
- * view is framed that way: each row says which instance holds it (and
- * links straight to it), an unassigned address is called out as idle
- * rather than shown as a blank cell, and adding one offers to attach
- * it on the spot.
+ * One public IPv4 comes with every server and can't be detached — so
+ * the list has exactly one included row per instance, and this page is
+ * where you buy any address beyond that. An address is only useful in
+ * relation to a server, so each row says which instance holds it (and
+ * links straight to it), and an idle one is called out rather than
+ * left as a blank cell.
  * ------------------------------------------------------------------ */
 
-export type IpKind = "public" | "private";
+/** Included with the server, or bought on top of it. */
+export type IpKind = "included" | "extra";
 
 export interface VpsIpAddress {
   id: string;
@@ -65,38 +67,43 @@ export interface VpsIpAddress {
 
 const INSTANCE_NAMES = Object.keys(VPS_INSTANCES);
 
+/** What one extra address costs per month, on top of the included one. */
+export const EXTRA_IP_PRICE_KHR = 8_000;
+
 /* Seeded from the instances themselves, so what this page lists is
    exactly what each server's Network & Access card already shows —
-   the two can't drift apart. */
-export const VPS_IP_ADDRESSES: VpsIpAddress[] = INSTANCE_NAMES.flatMap((name, i) => {
-  const inst = VPS_INSTANCES[name];
-  return [
-    {
-      id: `ip-public-${i + 1}`,
-      address: inst.network.publicIp,
-      kind: "public" as const,
-      assignedTo: name,
-      primary: true,
-      label: `${name} primary`,
-      addedOn: "Nov 2, 2026",
-    },
-    {
-      id: `ip-private-${i + 1}`,
-      address: inst.network.privateIp,
-      kind: "private" as const,
-      assignedTo: name,
-      primary: true,
-      label: `${name} private`,
-      addedOn: "Nov 2, 2026",
-    },
-  ];
-});
+   the two can't drift apart. One row per server: its own IPv4. */
+export const VPS_IP_ADDRESSES: VpsIpAddress[] = INSTANCE_NAMES.map((name, i) => ({
+  id: `ip-included-${i + 1}`,
+  address: VPS_INSTANCES[name].network.publicIp,
+  kind: "included" as const,
+  assignedTo: name,
+  primary: true,
+  label: `${name} primary`,
+  addedOn: "Nov 2, 2026",
+}));
 
 let ipSeq = VPS_IP_ADDRESSES.length;
 
-export function addVpsIpAddress(ip: Omit<VpsIpAddress, "id" | "addedOn">): VpsIpAddress {
+/* Addresses aren't typed in — they're allocated out of the pool when
+   you buy one, the same way a server's own address is. */
+function nextPoolAddress(): string {
+  let n = 40 + ipSeq;
+  while (VPS_IP_ADDRESSES.some((ip) => ip.address === `203.0.113.${n}`)) n += 1;
+  return `203.0.113.${n}`;
+}
+
+export function buyVpsIpAddress(
+  details: Pick<VpsIpAddress, "assignedTo" | "label">
+): VpsIpAddress {
   ipSeq += 1;
-  const created: VpsIpAddress = { ...ip, id: `ip-${ipSeq}`, addedOn: "Today" };
+  const created: VpsIpAddress = {
+    ...details,
+    id: `ip-${ipSeq}`,
+    address: nextPoolAddress(),
+    kind: "extra",
+    addedOn: "Today",
+  };
   VPS_IP_ADDRESSES.push(created);
   return created;
 }
@@ -111,78 +118,43 @@ export function assignVpsIpAddress(id: string, instance?: string) {
   if (ip) ip.assignedTo = instance;
 }
 
-/* Four dotted octets, each 0–255 — enough to catch a typo without
-   pretending to be a full validator. */
-function isIpv4(value: string): boolean {
-  const parts = value.trim().split(".");
-  return (
-    parts.length === 4 &&
-    parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) >= 0 && Number(p) <= 255)
-  );
-}
-
-// 10/8, 172.16/12 and 192.168/16 — the ranges that can't be routed on
-// the public internet, so they belong to a private network, not a
-// public address.
-function isPrivateRange(value: string): boolean {
-  const [a, b] = value.split(".").map(Number);
-  return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
-}
-
 function KindBadge({ kind }: { kind: IpKind }) {
-  const isPublic = kind === "public";
-  const Icon = isPublic ? Globe : Lock;
+  const included = kind === "included";
+  const Icon = included ? Lock : Globe;
   return (
     <span
       className={
         "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium " +
-        (isPublic
-          ? "bg-[#EFF6FF] text-[#1C75BC] dark:bg-zinc-800 dark:text-[#6FA8D8]"
-          : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300")
+        (included
+          ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+          : "bg-[#EFF6FF] text-[#1C75BC] dark:bg-zinc-800 dark:text-[#6FA8D8]")
       }
     >
       <Icon className="h-3 w-3" />
-      {isPublic ? "Public IPv4" : "Private"}
+      {included ? "Included" : "Extra"}
     </span>
   );
 }
 
-function AddIpDialog({
+function BuyIpDialog({
   open,
   onOpenChange,
-  existing,
-  onAdd,
+  onBuy,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  existing: VpsIpAddress[];
-  onAdd: (ip: Omit<VpsIpAddress, "id" | "addedOn">) => void;
+  onBuy: (details: Pick<VpsIpAddress, "assignedTo" | "label">) => void;
 }) {
-  const [address, setAddress] = useState("");
   const [label, setLabel] = useState("");
   const [assignedTo, setAssignedTo] = useState<string>("none");
-  const [error, setError] = useState<string | null>(null);
 
   function reset() {
-    setAddress("");
     setLabel("");
     setAssignedTo("none");
-    setError(null);
   }
 
   function submit() {
-    const value = address.trim();
-    if (!isIpv4(value)) {
-      setError("That doesn't look like an IPv4 address — four numbers, like 203.0.113.24.");
-      return;
-    }
-    if (existing.some((ip) => ip.address === value)) {
-      setError("That address is already on your account.");
-      return;
-    }
-    onAdd({
-      address: value,
-      kind: isPrivateRange(value) ? "private" : "public",
+    onBuy({
       label: label.trim() || undefined,
       assignedTo: assignedTo === "none" ? undefined : assignedTo,
     });
@@ -200,49 +172,22 @@ function AddIpDialog({
     >
       <DialogContent className="max-w-[460px]">
         <DialogHeader>
-          <DialogTitle>Add IP Address</DialogTitle>
+          <DialogTitle>Buy an IP address</DialogTitle>
           <DialogDescription>
-            Bring an address you already own. Attach it to one of your servers now, or leave it
-            unassigned and attach it later.
+            Every server already comes with one IPv4. Buy another when a server needs a second
+            address — for a separate site, or an SSL certificate of its own.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="ip-address">IP address</Label>
-            <Input
-              id="ip-address"
-              autoFocus
-              value={address}
-              onChange={(e) => {
-                setAddress(e.target.value);
-                setError(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") submit();
-              }}
-              placeholder="203.0.113.24"
-              className="mt-2 font-mono"
-            />
-            {error ? (
-              <p className="mt-1.5 text-xs text-red-500">{error}</p>
-            ) : (
-              <p className="mt-1.5 text-[12px] text-zinc-500 dark:text-zinc-400">
-                Addresses in 10.x, 172.16–31.x and 192.168.x are added as private — everything else
-                is treated as public.
-              </p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="ip-label">Label (optional)</Label>
-            <Input
-              id="ip-label"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="Office gateway"
-              className="mt-2"
-            />
+          {/* Nothing to type: the address is allocated on purchase, the
+              same way a server's own address is. */}
+          <div className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/60">
+            <Globe className="mt-0.5 h-4 w-4 shrink-0 text-[#1C75BC] dark:text-[#6FA8D8]" />
+            <p className="text-[12.5px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+              The address is picked from our pool and shown here as soon as it&apos;s ready — you
+              don&apos;t need to supply one.
+            </p>
           </div>
 
           <div>
@@ -260,6 +205,29 @@ function AddIpDialog({
                 ))}
               </SelectContent>
             </Select>
+            <p className="mt-1.5 text-[12px] text-zinc-500 dark:text-zinc-400">
+              You can move it to a different server at any time.
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="ip-label">Label (optional)</Label>
+            <Input
+              id="ip-label"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="shop.example.com"
+              className="mt-2"
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-[#1C75BC]/30 bg-[#EFF6FF]/60 px-3 py-2.5 dark:border-[#6FA8D8]/30 dark:bg-zinc-900">
+            <span className="text-[13px] text-zinc-600 dark:text-zinc-300">
+              One extra IPv4 address
+            </span>
+            <span className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">
+              {EXTRA_IP_PRICE_KHR.toLocaleString()} KHR / month
+            </span>
           </div>
         </div>
 
@@ -269,13 +237,8 @@ function AddIpDialog({
               Cancel
             </Button>
           </DialogClose>
-          <Button
-            variant="brand"
-            disabled={address.trim().length === 0}
-            onClick={submit}
-            className="h-9 text-sm"
-          >
-            Add IP Address
+          <Button variant="brand" onClick={submit} className="h-9 text-sm">
+            Buy for {EXTRA_IP_PRICE_KHR.toLocaleString()} KHR
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -289,17 +252,18 @@ export function VpsIpAddressesPage({
   onOpenInstance: (instanceName: string) => void;
 }) {
   const [ips, setIps] = useState<VpsIpAddress[]>(() => [...VPS_IP_ADDRESSES]);
-  const [addOpen, setAddOpen] = useState(false);
+  const [buyOpen, setBuyOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<VpsIpAddress | null>(null);
 
-  const counts = useMemo(
-    () => ({
+  const counts = useMemo(() => {
+    const extra = ips.filter((ip) => ip.kind === "extra");
+    return {
       total: ips.length,
-      assigned: ips.filter((ip) => ip.assignedTo).length,
+      included: ips.length - extra.length,
+      extra: extra.length,
       idle: ips.filter((ip) => !ip.assignedTo).length,
-    }),
-    [ips]
-  );
+    };
+  }, [ips]);
 
   function setAssignment(id: string, instance?: string) {
     assignVpsIpAddress(id, instance);
@@ -314,30 +278,38 @@ export function VpsIpAddressesPage({
             IP Address
           </h1>
           <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Every address on your account and which server holds it. Add your own address here, then
-            attach it to any of your VPS instances.
+            Every address on your account and which server holds it. Each VPS comes with one IPv4 —
+            buy another here when a server needs more.
           </p>
         </div>
         <Button
           variant="brand"
-          onClick={() => setAddOpen(true)}
+          onClick={() => setBuyOpen(true)}
           className="h-9 shrink-0 gap-1.5 px-4 text-sm"
         >
           <Plus className="h-4 w-4" animateOnHover animateOnTap />
-          Add IP Address
+          Buy IP Address
         </Button>
       </div>
 
       {/* The three numbers worth knowing before scanning the table —
-          most of all whether anything is sitting idle. */}
+          what comes with the servers, what's being paid for on top, and
+          whether any of it is sitting idle. */}
       <div className="mt-5 grid gap-4 sm:grid-cols-3">
         {[
           { label: "Addresses", value: `${counts.total}`, hint: "on this account" },
-          { label: "Attached", value: `${counts.assigned}`, hint: "in use by a server" },
           {
-            label: "Unassigned",
-            value: `${counts.idle}`,
-            hint: counts.idle > 0 ? "not reaching anything yet" : "nothing idle",
+            label: "Included",
+            value: `${counts.included}`,
+            hint: "one per server, free",
+          },
+          {
+            label: "Extra",
+            value: `${counts.extra}`,
+            hint:
+              counts.idle > 0
+                ? `${counts.idle} not attached to a server`
+                : `${EXTRA_IP_PRICE_KHR.toLocaleString()} KHR each / month`,
           },
         ].map((s) => (
           <div
@@ -374,9 +346,13 @@ export function VpsIpAddressesPage({
                       <span className="font-mono text-[13px] font-medium text-zinc-900 dark:text-zinc-100">
                         {ip.address}
                       </span>
-                      {ip.primary && (
+                      {ip.primary ? (
                         <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
                           Primary
+                        </span>
+                      ) : (
+                        <span className="whitespace-nowrap text-[11.5px] text-zinc-400 dark:text-zinc-500">
+                          {EXTRA_IP_PRICE_KHR.toLocaleString()} KHR / mo
                         </span>
                       )}
                     </span>
@@ -459,28 +435,27 @@ export function VpsIpAddressesPage({
                 No IP addresses yet
               </p>
               <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-                Add one to point it at a server.
+                Create a server and its IPv4 shows up here, or buy one on its own.
               </p>
             </div>
-            <Button variant="brand" onClick={() => setAddOpen(true)} className="mt-1 h-9 text-sm">
-              Add IP Address
+            <Button variant="brand" onClick={() => setBuyOpen(true)} className="mt-1 h-9 text-sm">
+              Buy IP Address
             </Button>
           </div>
         )}
       </Card>
 
-      <AddIpDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        existing={ips}
-        onAdd={(ip) => setIps((prev) => [...prev, addVpsIpAddress(ip)])}
+      <BuyIpDialog
+        open={buyOpen}
+        onOpenChange={setBuyOpen}
+        onBuy={(details) => setIps((prev) => [...prev, buyVpsIpAddress(details)])}
       />
 
       <ConfirmDialog
         open={deleteTarget != null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         title={deleteTarget ? `Remove ${deleteTarget.address}?` : "Remove IP address?"}
-        description="Anything pointing at this address stops reaching your server once it's removed."
+        description="Anything pointing at this address stops reaching your server once it's removed, and you stop being charged for it."
         confirmLabel="Remove"
         variant="destructive"
         onConfirm={() => {

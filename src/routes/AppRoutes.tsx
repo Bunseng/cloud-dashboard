@@ -81,7 +81,8 @@ import {
 import { VpsMonitoringPage } from "../pages/vps/VpsMonitoringPage";
 import { VpsSnapshotsPage } from "../pages/vps/VpsSnapshotsPage";
 import { VpsSshKeysPage } from "../pages/vps/VpsSshKeysPage";
-import { VpsIpAddressesPage } from "../pages/vps/VpsIpAddressesPage";
+import { assignVpsIpAddress, VpsIpAddressesPage } from "../pages/vps/VpsIpAddressesPage";
+import { SubscribeFlowSamplesPage } from "../pages/vps/SubscribeFlowSamples";
 import { useVpsSnapshot } from "../pages/vps/VpsSnapshotContext";
 import {
   addVpsSubscription,
@@ -352,6 +353,11 @@ function SubscribeRoute() {
           // the Create VPS path does.
           if (server.snapshotEnabled) {
             subscribeSnapshot(name, server.snapshotTierId ?? "basic");
+          }
+          // Extra IP addresses were bought in the Network step before
+          // the server had a name — attach them now that it has one.
+          for (const ipId of server.extraIpIds ?? []) {
+            assignVpsIpAddress(ipId, name);
           }
           navigate(`/vps/${encodeURIComponent(name)}`);
           return;
@@ -936,6 +942,9 @@ export default function DashboardPage() {
             otherwise "ssh-keys" would be read as an instance name. */}
         <Route path="/vps/ssh-keys" element={<VpsSshKeysPage />} />
         <Route path="/vps/ip-addresses" element={<VpsIpAddressesRoute />} />
+        {/* Layout comparison for the VPS subscribe flow — not linked
+            from the nav; it's a design sample, not a product page. */}
+        <Route path="/vps/flow-samples" element={<SubscribeFlowSamplesPage />} />
         <Route path="/vps/:instanceName" element={<VpsInstanceRoute />} />
         <Route path="/vps/:instanceName/monitoring" element={<VpsMonitoringRoute />} />
         <Route path="/groups" element={<GroupsRoute />} />

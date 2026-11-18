@@ -54,15 +54,15 @@ import type { Snapshot } from "./VpsSnapshotContext";
  * Subscribe flow's "Change Plan" step instead of living here.
  * ------------------------------------------------------------------ */
 
-// Grouped by family so Create VPS can offer a version per OS instead of
-// one flat list; EditVpsDialog still just needs the flattened strings.
+// The five distros we actually provide images for. Grouped by family so
+// Create VPS can offer a version per OS instead of one flat list;
+// EditVpsDialog still just needs the flattened strings.
 export const VPS_OS_FAMILIES: { family: string; versions: string[] }[] = [
   { family: "Ubuntu", versions: ["24.04 LTS", "22.04 LTS", "20.04 LTS"] },
   { family: "CentOS", versions: ["9 Stream", "8 Stream"] },
   { family: "Debian", versions: ["12", "11"] },
   { family: "Fedora", versions: ["40", "39"] },
   { family: "AlmaLinux", versions: ["9", "8"] },
-  { family: "OracleLinux", versions: ["9", "8"] },
 ];
 
 /* SSH Keys — account-level, not per-instance, so a key added on one

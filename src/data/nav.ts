@@ -137,6 +137,10 @@ export const FEATURES: Feature[] = [
       { label: "IP Address", path: "/vps/ip-addresses" },
       { label: "SSH Keys", path: "/vps/ssh-keys" },
       { label: "Snapshots", path: "/vps/snapshots" },
+      // Design sample, not a product page — listed only so the five
+      // Subscribe layouts are one click away while they're being
+      // compared. Delete this row once one of them is picked.
+      { label: "Flow samples", path: "/vps/flow-samples" },
     ],
   },
 ];

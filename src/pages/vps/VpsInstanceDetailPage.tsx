@@ -523,10 +523,11 @@ export function VpsInstanceDetailPage({
                   <Info className="h-3.5 w-3.5 text-zinc-400" />
                 </div>
                 <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-                  Addresses and SSH login for this instance.
+                  Addresses and SSH login for this instance. One IPv4 comes with the server — buy
+                  another under VPS → IP Address if this one needs a second.
                 </p>
                 <div className="mt-4 space-y-2">
-                  <ConnectionRow label="IPv4" value={d.network.publicIp} />
+                  <ConnectionRow label="IPv4 · included with this server" value={d.network.publicIp} />
                   <ConnectionRow label="Private network" value={d.network.privateIp} />
                   <ConnectionRow
                     label={`SSH command · ${d.os.split(/[\s-]/)[0]} OS user`}
